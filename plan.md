@@ -24,19 +24,18 @@
 - [x] Analysis Engine: Rebalancing Calculator
 - [x] API: Portfolio CRUD, Rebalance Analysis
 
-## Phase 5: Next Generation Frontend (Next.js) (In Progress)
-- [ ] Next.js + TailwindCSS Setup
-- [ ] Components (Glassmorphism, Dark Mode)
-- [ ] Feature Implementation:
-    - [ ] Dashboard (Asset Overview)
-    - [ ] Account Management
-    - [ ] Portfolio Rebalancing
+## Phase 5: Next Generation Frontend (Next.js) (Completed)
+- [x] Next.js + TailwindCSS Setup
+- [x] Components (Glassmorphism, Dark Mode, Premium UI)
+- [x] Feature Implementation:
+    - [x] Dashboard (Asset Overview, Real-time Weights)
+    - [x] Account Management (Secure Encryption)
+    - [x] Portfolio Rebalancing (Analysis & Suggestions)
+    - [x] Advanced Trading Modals (Manual, Grid, Daily Split)
 
 ## Phase 6: Stability & Expansion (Ongoing)
-- [x] `APScheduler`: Automatic Data Collection
+- [x] `APScheduler`: Automatic Data Collection & Scheduled Trading
 - [ ] End-to-End Testing (Real Environment)
+- [x] Code Cleanup & Refactoring (Removed legacy frontend_old)
+- [x] Git Repository Setup (GitHub CLI)
 - [ ] Docker Containerization
-
-## Deprecated / Cleanup
-- [x] `frontend_old` (Streamlit) -> Replaced by Phase 5
-- [ ] Remove temporary log files and scripts
