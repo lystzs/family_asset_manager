@@ -9,6 +9,7 @@ class Account(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     
     alias = Column(String) # "아버지-주식"
+    hts_id = Column(String, nullable=True) # KIS HTS ID for WebSocket (H0STCNI0)
     
     # Encrypted Fields
     cano = Column(String, unique=True, index=True) # Encrypted Account No (Front 8)
@@ -24,6 +25,6 @@ class Account(Base):
     api_expiry_date = Column(String, nullable=True) # Format: YYYY-MM-DD
     
     user = relationship("User", backref="accounts")
-    trade_logs = relationship("TradeLog", back_populates="account")
-    target_portfolios = relationship("TargetPortfolio", back_populates="account")
-    scheduled_orders = relationship("ScheduledOrder", back_populates="account")
+    trade_logs = relationship("TradeLog", back_populates="account", cascade="all, delete-orphan")
+    target_portfolios = relationship("TargetPortfolio", back_populates="account", cascade="all, delete-orphan")
+    scheduled_orders = relationship("ScheduledOrder", back_populates="account", cascade="all, delete-orphan")

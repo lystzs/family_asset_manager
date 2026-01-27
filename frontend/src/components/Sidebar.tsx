@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ArrowLeftRight, Settings, UserCircle, Users, CreditCard, TrendingUp, BarChart3 } from "lucide-react";
+import { LayoutDashboard, ArrowLeftRight, Settings, UserCircle, Users, CreditCard, TrendingUp, BarChart3, LineChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/context/AccountContext";
 
 const navItems = [
     { name: "대시보드", href: "/", icon: LayoutDashboard },
     { name: "포트폴리오", href: "/portfolio", icon: BarChart3 },
-    { name: "트레이딩", href: "/trade", icon: ArrowLeftRight },
+    { name: "자산 변동 내역", href: "/history", icon: LineChart },
 ];
 
 const settingItems = [

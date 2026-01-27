@@ -10,7 +10,13 @@ import {
     TargetPortfolio,
     RebalanceAnalysis,
     Stock,
-    TradeSuggestion
+    TradeSuggestion,
+    fetchUnfilledOrders,
+    cancelOrder,
+    fetchBalance,
+    fetchExecutedOrders,
+    fetchScheduledOrders,
+    cancelScheduledOrder
 } from "@/services/api";
 
 import { useEffect, useState } from "react";
@@ -29,10 +35,16 @@ import {
     Minus,
     Coins,
     Layers,
-    CalendarClock
+    CalendarClock,
+    ChevronDown,
+    ChevronUp
 } from "lucide-react";
 import { SplitTradeModal } from "@/components/SplitTradeModal";
 import { DailySplitModal } from "@/components/DailySplitModal";
+import { UnfilledOrdersList } from "@/components/UnfilledOrdersList";
+import { ScheduledOrdersList } from "@/components/ScheduledOrdersList";
+import { ExecutedOrdersList } from "@/components/ExecutedOrdersList";
+import { OrderRevisionModal } from "@/components/OrderRevisionModal";
 
 export default function PortfolioPage() {
     const { selectedAccount } = useAccount();
@@ -56,6 +68,54 @@ export default function PortfolioPage() {
     const [selectedSplitSuggestion, setSelectedSplitSuggestion] = useState<TradeSuggestion | null>(null);
     const [selectedDailySuggestion, setSelectedDailySuggestion] = useState<TradeSuggestion | null>(null);
 
+    // Unfilled Orders State
+    const [unfilledOrders, setUnfilledOrders] = useState<any[]>([]);
+    const [unfilledError, setUnfilledError] = useState<string | null>(null);
+    const [isUnfilledLoading, setIsUnfilledLoading] = useState(false);
+
+    // Order Revision State
+    const [isRevisionOpen, setIsRevisionOpen] = useState(false);
+    const [revisionOrder, setRevisionOrder] = useState<any>(null);
+
+    // Executed Orders State
+    const [executedOrders, setExecutedOrders] = useState<any[]>([]);
+    const [executedError, setExecutedError] = useState<string | null>(null);
+    const [isExecutedLoading, setIsExecutedLoading] = useState(false);
+
+    // Scheduled Orders State
+    const [scheduledOrders, setScheduledOrders] = useState<any[]>([]);
+    const [scheduledError, setScheduledError] = useState<string | null>(null);
+    const [isScheduledLoading, setIsScheduledLoading] = useState(false);
+
+    // Collapsible State (Default: Open)
+    const [isScheduledOpen, setIsScheduledOpen] = useState(true);
+    const [isUnfilledOpen, setIsUnfilledOpen] = useState(true);
+    const [isExecutedOpen, setIsExecutedOpen] = useState(true);
+
+    // Load collapsible state from localStorage on mount
+    useEffect(() => {
+        const savedScheduled = localStorage.getItem("portfolio_isScheduledOpen");
+        const savedUnfilled = localStorage.getItem("portfolio_isUnfilledOpen");
+        const savedExecuted = localStorage.getItem("portfolio_isExecutedOpen");
+
+        if (savedScheduled !== null) setIsScheduledOpen(savedScheduled === "true");
+        if (savedUnfilled !== null) setIsUnfilledOpen(savedUnfilled === "true");
+        if (savedExecuted !== null) setIsExecutedOpen(savedExecuted === "true");
+    }, []);
+
+    // Save collapsible state to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem("portfolio_isScheduledOpen", String(isScheduledOpen));
+    }, [isScheduledOpen]);
+
+    useEffect(() => {
+        localStorage.setItem("portfolio_isUnfilledOpen", String(isUnfilledOpen));
+    }, [isUnfilledOpen]);
+
+    useEffect(() => {
+        localStorage.setItem("portfolio_isExecutedOpen", String(isExecutedOpen));
+    }, [isExecutedOpen]);
+
     const loadPortfolio = async () => {
         if (!selectedAccount) return;
         setIsLoading(true);
@@ -67,6 +127,100 @@ export default function PortfolioPage() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const loadUnfilledOrders = async () => {
+        if (!selectedAccount) {
+            setUnfilledOrders([]);
+            return;
+        }
+
+        setIsUnfilledLoading(true);
+        setUnfilledError(null);
+        try {
+            const data = await fetchUnfilledOrders(selectedAccount.id);
+            const orders = Array.isArray(data) ? data : (data.output1 || data.output || []);
+            setUnfilledOrders(orders);
+        } catch (e: any) {
+            console.error("Failed to load unfilled orders", e);
+            setUnfilledError(e.response?.data?.detail || "미체결 내역을 불러오지 못했습니다.");
+        } finally {
+            setIsUnfilledLoading(false);
+        }
+    };
+
+    const loadExecutedOrders = async () => {
+        if (!selectedAccount) {
+            setExecutedOrders([]);
+            return;
+        }
+
+        setIsExecutedLoading(true);
+        setExecutedError(null);
+        try {
+            const data = await fetchExecutedOrders(selectedAccount.id);
+            const orders = Array.isArray(data) ? data : (data.output1 || data.output || []);
+            setExecutedOrders(orders);
+        } catch (e: any) {
+            console.error("Failed to load executed orders", e);
+            setExecutedError(e.response?.data?.detail || "체결 내역을 불러오지 못했습니다.");
+        } finally {
+            setIsExecutedLoading(false);
+        }
+    };
+
+    const loadScheduledOrders = async () => {
+        if (!selectedAccount) {
+            setScheduledOrders([]);
+            return;
+        }
+
+        setIsScheduledLoading(true);
+        setScheduledError(null);
+        try {
+            const data = await fetchScheduledOrders(selectedAccount.id);
+            // Hide cancelled orders as per user request
+            const activeOrders = data.filter((order: any) => order.status !== 'CANCELLED');
+            setScheduledOrders(activeOrders);
+        } catch (e: any) {
+            console.error("Failed to load scheduled orders", e);
+            setScheduledError(e.response?.data?.detail || "예약 내역을 불러오지 못했습니다.");
+        } finally {
+            setIsScheduledLoading(false);
+        }
+    };
+
+    const handleCancelOrder = async (order: any) => {
+        if (!selectedAccount) return;
+        if (!confirm(`${order.prdt_name} 주문을 취소하시겠습니까?`)) return;
+
+        try {
+            await cancelOrder({
+                account_id: selectedAccount.id,
+                orgn_odno: order.odno,
+                quantity: parseInt(order.rmn_qty || order.psbl_qty || order.ord_qty),
+                all_qty: true
+            });
+            loadUnfilledOrders();
+        } catch (e: any) {
+            alert(e.response?.data?.detail || "취소에 실패했습니다.");
+        }
+    };
+
+    const handleCancelScheduledOrder = async (orderId: number, stockName: string) => {
+        if (!confirm(`'${stockName}' 예약 주문을 취소하시겠습니까?`)) return;
+
+        try {
+            await cancelScheduledOrder(orderId);
+            loadScheduledOrders();
+        } catch (e: any) {
+            alert(e.response?.data?.detail || "취소에 실패했습니다.");
+        }
+    };
+
+    const handleReviseOrder = (order: any) => {
+        setRevisionOrder(order);
+        setIsRevisionOpen(true);
     };
 
     const handleSearch = async (val: string) => {
@@ -156,7 +310,12 @@ export default function PortfolioPage() {
     };
 
     useEffect(() => {
-        loadPortfolio();
+        if (selectedAccount) {
+            loadPortfolio();
+            loadUnfilledOrders();
+            loadExecutedOrders();
+            loadScheduledOrders();
+        }
         setAnalysis(null);
     }, [selectedAccount]);
 
@@ -355,8 +514,11 @@ export default function PortfolioPage() {
                                     min="0"
                                     max="100"
                                     className="w-full px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:outline-none"
-                                    value={targetPct}
-                                    onChange={(e) => setTargetPct(parseFloat(e.target.value))}
+                                    value={isNaN(targetPct) ? "" : targetPct}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setTargetPct(val);
+                                    }}
                                 />
                             </div>
                             <button
@@ -437,112 +599,115 @@ export default function PortfolioPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {analysis.items.map((item) => {
-                                    const totalStockEquity = analysis.total_asset - analysis.current_cash;
-                                    // Avoid division by zero
-                                    const stockWeight = totalStockEquity > 0 && item.stock_code !== 'CASH'
-                                        ? (item.current_value / totalStockEquity) * 100
-                                        : 0;
+                                {analysis.items
+                                    .filter(item => item.current_qty > 0 || item.suggested_qty > 0)
+                                    .sort((a, b) => a.stock_name.localeCompare(b.stock_name))
+                                    .map((item) => {
+                                        const totalStockEquity = analysis.total_asset - analysis.current_cash;
+                                        // Avoid division by zero
+                                        const stockWeight = totalStockEquity > 0 && item.stock_code !== 'CASH'
+                                            ? (item.current_value / totalStockEquity) * 100
+                                            : 0;
 
-                                    const assetWeight = (item.current_value / analysis.total_asset) * 100;
-                                    const targetWeight = (item.target_value / analysis.total_asset) * 100;
+                                        const assetWeight = (item.current_value / analysis.total_asset) * 100;
+                                        const targetWeight = (item.target_value / analysis.total_asset) * 100;
 
-                                    return (
-                                        <tr key={item.stock_code} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-6 py-5">
-                                                <div className="flex flex-col">
-                                                    {item.stock_code === 'CASH' ? (
-                                                        item.stock_name
-                                                    ) : (
-                                                        <a
-                                                            href={`https://stock.naver.com/domestic/stock/${item.stock_code}/price`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="font-bold hover:underline hover:text-blue-600 transition-colors cursor-pointer"
-                                                        >
-                                                            {item.stock_name}
-                                                        </a>
-                                                    )}
-                                                    <span className="text-xs text-muted-foreground">{item.stock_code}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-5 text-right font-medium">
-                                                {item.stock_code !== 'CASH' ? `${stockWeight.toFixed(1)}%` : '-'}
-                                            </td>
-                                            <td className="px-4 py-5 text-right font-medium">{assetWeight.toFixed(1)}%</td>
-                                            <td className="px-4 py-5 text-right font-medium text-primary">{targetWeight.toFixed(1)}%</td>
-                                            <td className={cn(
-                                                "px-6 py-5 text-right font-bold",
-                                                item.diff_value > 0 ? "text-red-500" : item.diff_value < 0 ? "text-blue-500" : ""
-                                            )}>
-                                                {item.diff_value > 0 ? "+" : ""}{item.diff_value.toLocaleString()}원
-                                            </td>
-                                            <td className="px-6 py-5 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    {item.action === "BUY" ? (
-                                                        <>
-                                                            <button
-                                                                onClick={() => setSelectedSuggestion(item)}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 font-bold border border-red-200 hover:bg-red-200 transition-colors"
+                                        return (
+                                            <tr key={item.stock_code} className="hover:bg-muted/30 transition-colors">
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col">
+                                                        {item.stock_code === 'CASH' ? (
+                                                            item.stock_name
+                                                        ) : (
+                                                            <a
+                                                                href={`https://stock.naver.com/domestic/stock/${item.stock_code}/price`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="font-bold hover:underline hover:text-blue-600 transition-colors cursor-pointer"
                                                             >
-                                                                <TrendingUp className="h-3.5 w-3.5" />
-                                                                매수 {item.suggested_qty.toLocaleString()}주
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setSelectedSplitSuggestion(item)}
-                                                                className="p-1.5 rounded-full text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
-                                                                title="분할 매수 (Grid)"
-                                                            >
-                                                                <Layers className="h-5 w-5" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setSelectedDailySuggestion(item)}
-                                                                className="p-1.5 rounded-full text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 transition-all"
-                                                                title="일별 예약 매수"
-                                                            >
-                                                                <CalendarClock className="h-5 w-5" />
-                                                            </button>
-                                                        </>
-                                                    ) : item.action === "SELL" ? (
-                                                        <>
-                                                            <button
-                                                                onClick={() => setSelectedSuggestion(item)}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-700 font-bold border border-blue-200 hover:bg-blue-200 transition-colors"
-                                                            >
-                                                                <TrendingDown className="h-3.5 w-3.5" />
-                                                                매도 {item.suggested_qty.toLocaleString()}주
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setSelectedSplitSuggestion(item)}
-                                                                className="p-1.5 rounded-full text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-all"
-                                                                title="분할 매도 (Grid)"
-                                                            >
-                                                                <Layers className="h-5 w-5" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setSelectedDailySuggestion(item)}
-                                                                className="p-1.5 rounded-full text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 transition-all"
-                                                                title="일별 예약 매도"
-                                                            >
-                                                                <CalendarClock className="h-5 w-5" />
-                                                            </button>
-                                                        </>
-                                                    ) : item.action === "RESERVE" ? (
-                                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 font-bold border border-green-200">
-                                                            <CheckCircle2 className="h-3.5 w-3.5" />
-                                                            현금보유
-                                                        </div>
-                                                    ) : (
-                                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-500 font-bold border border-gray-200">
-                                                            <Minus className="h-3.5 w-3.5" />
-                                                            유지
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                                                {item.stock_name}
+                                                            </a>
+                                                        )}
+                                                        <span className="text-xs text-muted-foreground">{item.stock_code}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-5 text-right font-medium">
+                                                    {item.stock_code !== 'CASH' ? `${stockWeight.toFixed(1)}%` : '-'}
+                                                </td>
+                                                <td className="px-4 py-5 text-right font-medium">{assetWeight.toFixed(1)}%</td>
+                                                <td className="px-4 py-5 text-right font-medium text-primary">{targetWeight.toFixed(1)}%</td>
+                                                <td className={cn(
+                                                    "px-6 py-5 text-right font-bold",
+                                                    item.diff_value > 0 ? "text-red-500" : item.diff_value < 0 ? "text-blue-500" : ""
+                                                )}>
+                                                    {item.diff_value > 0 ? "+" : ""}{item.diff_value.toLocaleString()}원
+                                                </td>
+                                                <td className="px-6 py-5 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        {item.action === "BUY" ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => setSelectedSuggestion(item)}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 font-bold border border-red-200 hover:bg-red-200 transition-colors"
+                                                                >
+                                                                    <TrendingUp className="h-3.5 w-3.5" />
+                                                                    매수 {item.suggested_qty.toLocaleString()}주
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setSelectedSplitSuggestion(item)}
+                                                                    className="p-1.5 rounded-full text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
+                                                                    title="분할 매수 (Grid)"
+                                                                >
+                                                                    <Layers className="h-5 w-5" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setSelectedDailySuggestion(item)}
+                                                                    className="p-1.5 rounded-full text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 transition-all"
+                                                                    title="일별 예약 매수"
+                                                                >
+                                                                    <CalendarClock className="h-5 w-5" />
+                                                                </button>
+                                                            </>
+                                                        ) : item.action === "SELL" ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => setSelectedSuggestion(item)}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-700 font-bold border border-blue-200 hover:bg-blue-200 transition-colors"
+                                                                >
+                                                                    <TrendingDown className="h-3.5 w-3.5" />
+                                                                    매도 {item.suggested_qty.toLocaleString()}주
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setSelectedSplitSuggestion(item)}
+                                                                    className="p-1.5 rounded-full text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-all"
+                                                                    title="분할 매도 (Grid)"
+                                                                >
+                                                                    <Layers className="h-5 w-5" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setSelectedDailySuggestion(item)}
+                                                                    className="p-1.5 rounded-full text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 transition-all"
+                                                                    title="일별 예약 매도"
+                                                                >
+                                                                    <CalendarClock className="h-5 w-5" />
+                                                                </button>
+                                                            </>
+                                                        ) : item.action === "RESERVE" ? (
+                                                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 font-bold border border-green-200">
+                                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                현금보유
+                                                            </div>
+                                                        ) : (
+                                                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-500 font-bold border border-gray-200">
+                                                                <Minus className="h-3.5 w-3.5" />
+                                                                유지
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                             </tbody>
                         </table>
                     </div>
@@ -588,6 +753,109 @@ export default function PortfolioPage() {
                     }}
                 />
             )}
+
+
+
+
+            {/* Scheduled Orders List */}
+            <div className="mt-12">
+                <div
+                    className="flex justify-between items-center mb-4 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
+                    onClick={() => setIsScheduledOpen(!isScheduledOpen)}
+                >
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                            일별 분할 예약 내역
+                        </h3>
+                        {scheduledOrders.length > 0 && (
+                            <span className="text-sm font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                                {scheduledOrders.length}
+                            </span>
+                        )}
+                        {isScheduledOpen ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                loadScheduledOrders();
+                            }}
+                            className="p-2 hover:bg-background rounded-full transition-colors text-muted-foreground hover:text-foreground"
+                            disabled={isScheduledLoading}
+                            title="새로고침"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${isScheduledLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
+                </div>
+                {isScheduledOpen && selectedAccount && (
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                        <ScheduledOrdersList
+                            orders={scheduledOrders}
+                            isLoading={isScheduledLoading}
+                            error={scheduledError}
+                            onCancel={handleCancelScheduledOrder}
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-12">
+                <div
+                    className="flex items-center gap-2 mb-4 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors w-fit"
+                    onClick={() => setIsUnfilledOpen(!isUnfilledOpen)}
+                >
+                    <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                        미체결 주문 내역
+                    </h3>
+                    {isUnfilledOpen ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+                </div>
+                {isUnfilledOpen && (
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                        <UnfilledOrdersList
+                            orders={unfilledOrders}
+                            isLoading={isUnfilledLoading}
+                            error={unfilledError}
+                            onRefresh={loadUnfilledOrders}
+                            onRevise={handleReviseOrder}
+                            onCancel={handleCancelOrder}
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-12">
+                <div
+                    className="flex items-center gap-2 mb-4 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors w-fit"
+                    onClick={() => setIsExecutedOpen(!isExecutedOpen)}
+                >
+                    <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                        당일 체결 내역
+                    </h3>
+                    {isExecutedOpen ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+                </div>
+                {isExecutedOpen && (
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                        <ExecutedOrdersList
+                            orders={executedOrders}
+                            isLoading={isExecutedLoading}
+                            error={executedError}
+                            onRefresh={loadExecutedOrders}
+                        />
+                    </div>
+                )}
+            </div>
+            <OrderRevisionModal
+                isOpen={isRevisionOpen}
+                onClose={() => setIsRevisionOpen(false)}
+                order={revisionOrder}
+                accountId={selectedAccount?.id || 0}
+                onSuccess={() => {
+                    loadUnfilledOrders();
+                    handleAnalyze();
+                }}
+            />
         </div>
     );
 }

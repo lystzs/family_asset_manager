@@ -21,7 +21,7 @@ app.add_middleware(
 def on_startup():
     from backend.app.db.base import Base
     from backend.app.db.session import engine
-    from backend.app.models import User, Account, TradeLog, Stock, TargetPortfolio
+    from backend.app.models import User, Account, TradeLog, Stock, TargetPortfolio, DailyAssetHistory
     from backend.app.core.scheduler import start_scheduler
     
     # Create Tables
@@ -39,7 +39,6 @@ app.include_router(api_router, prefix="/v1")
 def root():
     return {
         "message": "Welcome to FAM Backend API",
-        "mode": settings.TRADING_MODE,
         "docs": "/docs"
     }
 

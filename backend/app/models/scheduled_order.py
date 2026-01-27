@@ -13,9 +13,16 @@ class ScheduledOrder(Base):
     stock_name = Column(String, nullable=False)
     action = Column(String, nullable=False) # BUY / SELL
     
-    total_quantity = Column(Integer, nullable=False)
-    daily_quantity = Column(Integer, nullable=False)
+    order_mode = Column(String, default="QUANTITY") # QUANTITY / AMOUNT
+    
+    total_quantity = Column(Integer, nullable=True)
+    daily_quantity = Column(Integer, nullable=True)
+    
+    total_amount = Column(Integer, nullable=True)
+    daily_amount = Column(Integer, nullable=True)
+    
     executed_quantity = Column(Integer, default=0)
+    executed_amount = Column(Integer, default=0)
     
     status = Column(String, default="ACTIVE") # ACTIVE, COMPLETED, CANCELLED
     

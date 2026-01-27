@@ -75,7 +75,8 @@ async def analyze_rebalance(user_id: int, account_id: int, db: Session = Depends
 
     total_asset = float(balance_data["output2"][0]["tot_evlu_amt"])
     current_cash = float(balance_data["output2"][0]["dnca_tot_amt"])
-    holdings = {item["pdno"]: item for item in balance_data["output1"]}
+    # Filter out 0-quantity holdings
+    holdings = {item["pdno"]: item for item in balance_data["output1"] if int(item.get("hldg_qty", 0)) > 0}
 
     # 4. 분석 및 제안 생성
     suggestions = []

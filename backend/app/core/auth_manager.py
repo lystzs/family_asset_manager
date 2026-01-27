@@ -66,3 +66,31 @@ class AuthManager:
                 print(f"[Auth] KIS Error Response: {res.text}")
             print(f"[Auth] Error refreshing token: {e}")
             raise e
+
+    @classmethod
+    def check_and_refresh_all_accounts(cls, db: Session):
+        """
+        Check all accounts and refresh tokens if they expire within 1 hour.
+        """
+        print(f"[Auth] Checking for expiring tokens at {datetime.now()}...")
+        accounts = db.query(Account).all()
+        count = 0
+        for account in accounts:
+            if not account.access_token or not account.token_expired_at:
+                continue
+            
+            # Check if expires in less than 1 hour (3600 seconds)
+            # Buffer: If remaining time < 3600s, refresh.
+            remaining = (account.token_expired_at - datetime.now()).total_seconds()
+            if remaining < 3600:
+                try:
+                    print(f"[Auth] Token for {account.alias} expires in {int(remaining)}s. Refreshing...")
+                    cls._refresh_token(account, db)
+                    count += 1
+                except Exception as e:
+                    print(f"[Auth] Failed to auto-refresh token for {account.alias}: {e}")
+        
+        if count > 0:
+            print(f"[Auth] Refreshed {count} tokens.")
+        else:
+            print("[Auth] No tokens needed refresh.")

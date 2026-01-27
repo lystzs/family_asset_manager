@@ -19,6 +19,7 @@ class AccountBase(BaseModel):
     alias: str
     cano: str # Front 8
     acnt_prdt_cd: str # Back 2
+    hts_id: Optional[str] = None # KIS WebSocket ID
 
 class AccountCreate(AccountBase):
     app_key: str
@@ -44,6 +45,8 @@ class AccountResponse(AccountBase):
 
 class AccountWithUserResponse(AccountResponse):
     user_name: str
+    app_key: Optional[str] = None
+    app_secret: Optional[str] = None
 
 class AccountResponseWithKeys(AccountResponse):
     app_key: Optional[str] = None

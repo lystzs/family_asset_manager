@@ -1,10 +1,14 @@
 "use client";
 
 import { useAccount } from "@/context/AccountContext";
-import { fetchBalance, fetchAccountPortfolio, TargetPortfolio, TradeSuggestion } from "@/services/api";
+import { fetchBalance, fetchAccountPortfolio, fetchUnfilledOrders, fetchExecutedOrders, TargetPortfolio, TradeSuggestion, useWebSocket } from "@/services/api";
 import { useEffect, useState } from "react";
 import { RefreshCcw, Wallet, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { TradeModal } from "@/components/TradeModal";
+import { UnfilledOrdersList } from "@/components/UnfilledOrdersList";
+import { ExecutedOrdersList } from "@/components/ExecutedOrdersList";
+import { OrderRevisionModal } from "@/components/OrderRevisionModal";
+import { cancelOrder } from "@/services/api";
 
 export default function Dashboard() {
   const { selectedAccount, accounts, isLoading: isContextLoading } = useAccount();
@@ -13,6 +17,24 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<TradeSuggestion | null>(null);
+
+  // Unfilled Orders State
+  const [unfilledOrders, setUnfilledOrders] = useState<any[]>([]);
+  const [unfilledError, setUnfilledError] = useState<string | null>(null);
+  const [isUnfilledLoading, setIsUnfilledLoading] = useState(false);
+
+  // Executed Orders State
+  const [executedOrders, setExecutedOrders] = useState<any[]>([]);
+  const [executedError, setExecutedError] = useState<string | null>(null);
+  const [isExecutedLoading, setIsExecutedLoading] = useState(false);
+
+  // Order Revision State
+  const [isRevisionOpen, setIsRevisionOpen] = useState(false);
+  const [revisionOrder, setRevisionOrder] = useState<any>(null);
+
+  useEffect(() => {
+    console.log("Unfilled Orders Debug:", unfilledOrders);
+  }, [unfilledOrders]);
 
   const loadBalance = async () => {
     setError(null);
@@ -126,6 +148,45 @@ export default function Dashboard() {
       setIsLoading(false);
     }
   };
+  const loadUnfilledOrders = async () => {
+    if (!selectedAccount) {
+      setUnfilledOrders([]);
+      return;
+    }
+
+    setIsUnfilledLoading(true);
+    setUnfilledError(null);
+    try {
+      const data = await fetchUnfilledOrders(selectedAccount.id);
+      const orders = Array.isArray(data) ? data : (data.output1 || data.output || []);
+      setUnfilledOrders(orders);
+    } catch (e: any) {
+      console.error("Failed to load unfilled orders", e);
+      setUnfilledError(e.response?.data?.detail || "미체결 내역을 불러오지 못했습니다.");
+    } finally {
+      setIsUnfilledLoading(false);
+    }
+  };
+
+  const loadExecutedOrders = async () => {
+    if (!selectedAccount) {
+      setExecutedOrders([]);
+      return;
+    }
+
+    setIsExecutedLoading(true);
+    setExecutedError(null);
+    try {
+      const data = await fetchExecutedOrders(selectedAccount.id);
+      const orders = Array.isArray(data) ? data : (data.output1 || data.output || []);
+      setExecutedOrders(orders);
+    } catch (e: any) {
+      console.error("Failed to load executed orders", e);
+      setExecutedError(e.response?.data?.detail || "체결 내역을 불러오지 못했습니다.");
+    } finally {
+      setIsExecutedLoading(false);
+    }
+  };
 
   const loadTargets = async () => {
     if (selectedAccount) {
@@ -141,10 +202,139 @@ export default function Dashboard() {
     }
   };
 
+  const handleCancelOrder = async (order: any) => {
+    if (!selectedAccount) return;
+    if (!confirm(`${order.prdt_name} 주문을 취소하시겠습니까?`)) return;
+
+    try {
+      await cancelOrder({
+        account_id: selectedAccount.id,
+        orgn_odno: order.odno,
+        quantity: parseInt(order.rmn_qty || order.psbl_qty || order.ord_qty)
+      });
+      loadUnfilledOrders();
+    } catch (e: any) {
+      alert(e.response?.data?.detail || "취소에 실패했습니다.");
+    }
+  };
+
+  const handleReviseOrder = (order: any) => {
+    setRevisionOrder(order);
+    setIsRevisionOpen(true);
+  };
+
+
   useEffect(() => {
-    loadBalance();
-    loadTargets();
+    const loadAll = async () => {
+      await Promise.all([loadBalance(), loadTargets(), loadUnfilledOrders(), loadExecutedOrders()]);
+    };
+    loadAll();
   }, [selectedAccount, accounts]);
+
+  // WebSocket Integration
+  const { connect, disconnect } = useWebSocket(selectedAccount?.id || 0, (msg) => {
+    // Check msg type
+    if (msg.type === "EXECUTION") {
+      console.log("Execution detected! Refreshing...");
+      // Trigger refresh
+      loadBalance();
+    } else if (msg.type === "PRICE") {
+      // { type: "PRICE", code: "...", price: "...", change: "...", rate: "..." }
+      if (!balance) return;
+
+      setBalance((prev: any) => {
+        if (!prev) return null;
+
+        // Deep copy needed for React state update?
+        // Or at least shallow copy of affected arrays.
+        const nextOutput1 = prev.output1 ? [...prev.output1] : [];
+        let updated = false;
+
+        const newOutput1 = nextOutput1.map((item: any) => {
+          if (item.pdno === msg.code) {
+            updated = true;
+            // Calculate new evaluation
+            const qty = parseInt(item.hldg_qty || "0");
+            const newPrice = parseInt(msg.price);
+            const purchaseAmt = parseInt(item.pchs_amt || "0");
+
+            const newEvalAmt = qty * newPrice;
+            const newProfitLoss = newEvalAmt - purchaseAmt;
+            const newProfitRate = purchaseAmt > 0 ? (newProfitLoss / purchaseAmt * 100) : 0;
+
+            return {
+              ...item,
+              prpr: msg.price,
+              prdy_vrss: msg.change,
+              prdy_ctrt: msg.rate,
+              evlu_amt: newEvalAmt.toString(),
+              evlu_pfls_amt: newProfitLoss.toString(),
+              evlu_pfls_rt: newProfitRate.toFixed(2)
+            };
+          }
+          return item;
+        });
+
+        if (!updated) return prev;
+
+        // Recalculate Summary (output2)
+        // This is a bit heavy to do on every tick if many stocks update, 
+        // but for < 20 stocks it's fine.
+        const nextOutput2 = [...(prev.output2 || [])];
+        if (nextOutput2.length > 0) {
+          let totalEval = 0;
+          let totalProfit = 0;
+          let totalAsset = 0; // Deposit + Total Stock Eval
+
+          newOutput1.forEach((h: any) => {
+            totalEval += parseInt(h.evlu_amt || "0");
+            totalProfit += parseInt(h.evlu_pfls_amt || "0");
+          });
+
+          const currentSummary = nextOutput2[0];
+          const deposit = parseInt(currentSummary.dnca_tot_amt || "0");
+
+          totalAsset = totalEval + deposit;
+
+          nextOutput2[0] = {
+            ...currentSummary,
+            scts_evlu_amt: totalEval.toString(),
+            evlu_pfls_smtl_amt: totalProfit.toString(),
+            tot_evlu_amt: totalAsset.toString()
+          };
+        }
+
+        return {
+          ...prev,
+          output1: newOutput1,
+          output2: nextOutput2
+        };
+      });
+    }
+  });
+
+  useEffect(() => {
+    if (selectedAccount && selectedAccount.hts_id) {
+      connect();
+    }
+    return () => disconnect();
+  }, [selectedAccount]);
+
+  // Subscribe to prices when balance is loaded
+  useEffect(() => {
+    if (balance?.output1 && balance.output1.length > 0) {
+      const codes = balance.output1
+        .map((h: any) => h.pdno)
+        .filter((code: string) => code && code !== "CASH");
+
+      if (codes.length > 0) {
+        console.log("Subscribing to realtime prices:", codes);
+        import("@/services/api").then(({ subscribeRealtimePrice }) => {
+          subscribeRealtimePrice(codes).catch(e => console.error("Sub Error:", e));
+        });
+      }
+    }
+  }, [balance?.output1]); // Only trigger when holdings list changes
 
   if (isContextLoading) {
     return <div className="p-10 text-center text-muted-foreground animate-pulse">데이터를 불러오는 중...</div>;
@@ -167,7 +357,10 @@ export default function Dashboard() {
 
   // Parse Data
   const summary = balance?.output2?.[0] || {};
-  const holdings = balance?.output1 || [];
+  const holdings = (balance?.output1 || [])
+    .filter((h: any) => parseInt(h.hldg_qty || "0") > 0)
+    .sort((a: any, b: any) => (a.prdt_name || "").localeCompare(b.prdt_name || ""));
+
 
   // Metrics
   const stockValuation = parseFloat(summary.scts_evlu_amt || "0");
@@ -178,6 +371,7 @@ export default function Dashboard() {
   const deposit = parseFloat(summary.dnca_tot_amt || "0");
   const d2Deposit = parseFloat(summary.prvs_rcdl_excc_amt || "0");
   const orderableAmount = parseFloat(summary.nxdy_excc_amt || "0");
+  const dailyRate = parseFloat(balance?.daily_status?.daily_profit_rate || "0");
 
   const handleTrade = (item: any, action: "BUY" | "SELL") => {
     const currentPrice = parseInt(item.prpr || "0");
@@ -233,7 +427,7 @@ export default function Dashboard() {
       )}
 
       {/* Metrics Row 1 */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-xl bg-white border border-border p-6 shadow-sm transition-all hover:shadow-md">
           <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">주식 평가금액</p>
           <p className="text-2xl font-bold text-foreground">{stockValuation.toLocaleString()}원</p>
@@ -249,9 +443,15 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="rounded-xl bg-card border border-border p-6 shadow-sm transition-all hover:shadow-md">
-          <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">수익률</p>
+          <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">총 수익률</p>
           <p className={`text-2xl font-bold ${profitRate >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
             {profitRate >= 0 ? '+' : ''}{profitRate.toFixed(2)}%
+          </p>
+        </div>
+        <div className="rounded-xl bg-card border border-border p-6 shadow-sm transition-all hover:shadow-md">
+          <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">일간 수익률</p>
+          <p className={`text-2xl font-bold ${dailyRate >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+            {dailyRate >= 0 ? '+' : ''}{dailyRate.toFixed(2)}%
           </p>
         </div>
       </div>
@@ -276,6 +476,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+
       {/* Holdings Table */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-border bg-muted/30">
@@ -290,19 +491,17 @@ export default function Dashboard() {
                   <th className="px-4 py-4 text-center font-medium">수량</th>
                   <th className="px-4 py-4 text-right font-medium">평균단가</th>
                   <th className="px-4 py-4 text-right font-medium">현재가</th>
+                  <th className="px-4 py-4 text-right font-medium text-xs text-muted-foreground">전일가</th>
                   <th className="px-4 py-4 text-right font-medium">등락</th>
                   <th className="px-4 py-4 text-right font-medium">매입금액</th>
                   <th className="px-4 py-4 text-right font-medium">평가금액</th>
                   <th className="px-4 py-4 text-right font-medium">평가손익</th>
                   <th className="px-4 py-4 text-right font-medium">수익률</th>
                   <th className="px-4 py-4 text-center font-medium text-xs text-muted-foreground">
-                    주식비중<br />(평가액)
+                    자산<br />비중
                   </th>
                   <th className="px-4 py-4 text-center font-medium text-xs text-muted-foreground">
-                    자산비중<br />(총자산)
-                  </th>
-                  <th className="px-4 py-4 text-center font-medium text-xs text-muted-foreground">
-                    목표비중
+                    목표<br />비중
                   </th>
                   <th className="px-4 py-4 text-center font-medium">주문</th>
                 </tr>
@@ -315,7 +514,7 @@ export default function Dashboard() {
                   const purchaseAmount = parseInt(h.pchs_amt || "0");
                   const profitLoss = parseInt(h.evlu_pfls_amt || "0");
                   const profitRateValue = parseFloat(h.evlu_pfls_rt || "0");
-                  const changeRate = parseFloat(h.fltt_rt || "0");
+                  const changeRate = parseFloat(h.prdy_ctrt || h.fltt_rt || "0");
                   const evalAmt = parseInt(h.evlu_amt || "0");
 
                   // Weights Calculation
@@ -350,8 +549,11 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td className="px-4 py-5 text-center font-medium">{qty.toLocaleString()}주</td>
-                      <td className="px-4 py-5 text-right text-muted-foreground">{avgPrice.toLocaleString()}원</td>
+                      <td className="px-4 py-5 text-right text-muted-foreground">{Math.round(avgPrice).toLocaleString()}원</td>
                       <td className="px-4 py-5 text-right font-bold">{currentPrice.toLocaleString()}원</td>
+                      <td className="px-4 py-5 text-right text-[10px] text-muted-foreground font-medium">
+                        {(parseInt(h.prpr || "0") - parseInt(h.prdy_vrss || "0")).toLocaleString()}원
+                      </td>
                       <td className={`px-4 py-5 text-right font-bold ${changeRate >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
                         {changeRate >= 0 ? '▲' : '▼'}{Math.abs(changeRate).toFixed(2)}%
                       </td>
@@ -362,9 +564,6 @@ export default function Dashboard() {
                       </td>
                       <td className={`px-4 py-5 text-right font-black ${profitRateValue >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
                         {profitRateValue >= 0 ? '+' : ''}{profitRateValue}%
-                      </td>
-                      <td className="px-4 py-5 text-center font-medium">
-                        {stockWeight.toFixed(1)}%
                       </td>
                       <td className="px-4 py-5 text-center font-medium text-muted-foreground">
                         {assetWeight.toFixed(1)}%
@@ -410,6 +609,38 @@ export default function Dashboard() {
         )}
       </div>
 
+
+
+      {/* Unfilled Orders List */}
+      <UnfilledOrdersList
+        orders={unfilledOrders}
+        isLoading={isUnfilledLoading}
+        error={unfilledError}
+        onRefresh={() => {
+          loadBalance();
+          loadUnfilledOrders();
+        }}
+        onRevise={handleReviseOrder}
+        onCancel={handleCancelOrder}
+      />
+      {/* Executed Orders List */}
+      <ExecutedOrdersList
+        orders={executedOrders}
+        isLoading={isExecutedLoading}
+        error={executedError}
+        onRefresh={() => loadExecutedOrders()}
+      />
+      <OrderRevisionModal
+        isOpen={isRevisionOpen}
+        onClose={() => setIsRevisionOpen(false)}
+        order={revisionOrder}
+        accountId={selectedAccount?.id || 0}
+        onSuccess={() => {
+          loadBalance();
+          loadUnfilledOrders();
+        }}
+      />
+
       {selectedSuggestion && selectedAccount && (
         <TradeModal
           isOpen={!!selectedSuggestion}
@@ -417,6 +648,7 @@ export default function Dashboard() {
           suggestion={selectedSuggestion}
           account={selectedAccount as any}
           availableCash={deposit}
+          unfilledOrders={unfilledOrders} // Pass unfilled orders
           onSuccess={() => {
             loadBalance();
           }}

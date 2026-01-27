@@ -24,4 +24,5 @@ def decrypt_data(token: str) -> str:
     try:
         return _cipher_suite.decrypt(token.encode()).decode()
     except Exception:
-        return ""
+        # If decryption fails, return the original data (legacy plaintext support)
+        return token

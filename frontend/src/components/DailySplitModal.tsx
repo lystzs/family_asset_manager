@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { TradeSuggestion, scheduleOrder, Account } from "@/services/api";
-import { X, Loader2, CalendarClock, Info, TrendingUp, TrendingDown } from "lucide-react";
+import { X, Loader2, CalendarClock, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DailySplitModalProps {
@@ -14,15 +14,25 @@ interface DailySplitModalProps {
 }
 
 export function DailySplitModal({ isOpen, onClose, account, suggestion, onSuccess }: DailySplitModalProps) {
-    const [totalQty, setTotalQty] = useState<number>(suggestion.suggested_qty);
+    // Mode: "AMOUNT" (Fixed amount per day) or "QUANTITY" (Fixed quantity per day)
+    // Per user request, we default to AMOUNT based, but could support both.
+    // Simplifying to Amount based as requested.
+
+    // State for Amount Mode
+    const [totalAmount, setTotalAmount] = useState<number>(suggestion.diff_value > 0 ? Math.floor(suggestion.diff_value) : 0);
     const [period, setPeriod] = useState<number>(5); // Default 5 days
     const [isLoading, setIsLoading] = useState(false);
 
     const isBuy = suggestion.action === "BUY";
     // Avoid division by zero
     const effectivePeriod = period > 0 ? period : 1;
-    const dailyQty = Math.ceil(totalQty / effectivePeriod);
-    const dailyAmount = dailyQty * suggestion.current_price;
+
+    // Calculations
+    // Ensure dailyAmount is integer
+    const dailyAmount = Math.floor(totalAmount / effectivePeriod);
+    const currentPrice = suggestion.current_price;
+    const estimatedDailyQty = currentPrice > 0 ? Math.floor(dailyAmount / currentPrice) : 0;
+    const estimatedTotalQty = estimatedDailyQty * effectivePeriod;
 
     // Theme Colors
     const themeColor = isBuy ? "bg-red-600" : "bg-blue-600";
@@ -33,7 +43,7 @@ export function DailySplitModal({ isOpen, onClose, account, suggestion, onSucces
     if (!isOpen) return null;
 
     const handleSchedule = async () => {
-        if (!confirm(`매일 약 ${dailyQty}주 (${dailyAmount.toLocaleString()}원)씩 ${period}일간\n총 ${totalQty}주를 ${isBuy ? '매수' : '매도'} 예약하시겠습니까?`)) return;
+        if (!confirm(`매일 약 ${dailyAmount.toLocaleString()}원씩 ${period}일간\n총 ${totalAmount.toLocaleString()}원을 ${isBuy ? '매수' : '매도'} 예약하시겠습니까?\n(예상 매매 수량: 약 ${estimatedTotalQty}주)`)) return;
 
         setIsLoading(true);
         try {
@@ -42,14 +52,20 @@ export function DailySplitModal({ isOpen, onClose, account, suggestion, onSucces
                 ticker: suggestion.stock_code,
                 stock_name: suggestion.stock_name,
                 action: suggestion.action,
-                total_quantity: totalQty,
-                daily_quantity: dailyQty
+                order_mode: "AMOUNT",
+                total_amount: Math.floor(totalAmount), // Ensure integer
+                daily_amount: dailyAmount,
+                // We send basic quantity fields as 0 or undefined if backend requires, 
+                // but our updated backend logic handles total_amount/daily_amount
+                total_quantity: 0, // Legacy/Fallback
+                daily_quantity: 0  // Legacy/Fallback
             });
-            alert("일별 예약 주문이 생성되었습니다.");
+            alert("일별 금액 분할 예약 주문이 생성되었습니다.");
             onSuccess();
             onClose();
         } catch (e: any) {
-            alert(`예약 실패: ${e.response?.data?.detail || e.message}`);
+            const errMsg = e.response?.data?.detail;
+            alert(`예약 실패: ${typeof errMsg === 'object' ? JSON.stringify(errMsg) : (errMsg || e.message)}`);
         } finally {
             setIsLoading(false);
         }
@@ -64,7 +80,7 @@ export function DailySplitModal({ isOpen, onClose, account, suggestion, onSucces
                     <div className="flex flex-col">
                         <h2 className="text-lg font-bold flex items-center gap-2">
                             <CalendarClock className="h-5 w-5" />
-                            {isBuy ? "일별 분할 매수 예약" : "일별 분할 매도 예약"}
+                            {isBuy ? "일별 분할 매수 예약 (금액)" : "일별 분할 매도 예약 (금액)"}
                         </h2>
                         <span className="text-xs text-white/80 font-medium pl-7">
                             {account.alias} ({account.cano}-{account.acnt_prdt_cd})
@@ -99,18 +115,18 @@ export function DailySplitModal({ isOpen, onClose, account, suggestion, onSucces
                                 </a>
                             )}
                             <br />
-                            매일 {isBuy ? '12:30' : '12:15'}에 자동으로 {isBuy ? '매수' : '매도'} 주문을 실행합니다.
+                            매일 {isBuy ? '12:30' : '12:15'}에 지정된 금액만큼 주문을 실행합니다.
                         </div>
                     </div>
 
                     <div className="space-y-4">
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-muted-foreground">총 목표 수량</label>
+                            <label className="text-sm font-medium text-muted-foreground">총 목표 금액 (원)</label>
                             <input
                                 type="number"
                                 className="w-full px-3 py-2 border rounded-lg font-bold text-right text-lg focus:ring-2 focus:ring-ring outline-none transition-all"
-                                value={totalQty}
-                                onChange={e => setTotalQty(Number(e.target.value))}
+                                value={totalAmount}
+                                onChange={e => setTotalAmount(Number(e.target.value))}
                             />
                         </div>
 
@@ -128,20 +144,24 @@ export function DailySplitModal({ isOpen, onClose, account, suggestion, onSucces
 
                     <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                         <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground text-sm">1일 주문 수량</span>
-                            <span className="text-lg font-bold">약 {dailyQty}주</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-2 border-t border-muted-foreground/20">
-                            <span className="text-muted-foreground text-sm">1일 예상 금액</span>
+                            <span className="text-muted-foreground text-sm">1일 목표 금액</span>
                             <span className={cn("text-lg font-bold", themeText)}>
                                 약 {dailyAmount.toLocaleString()}원
                             </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-muted-foreground/20">
+                            <span className="text-muted-foreground text-sm">현재가 기준 예상 수량 (1일)</span>
+                            <span className="text-base font-medium">约 {estimatedDailyQty}주</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-muted-foreground">
+                            <span>총 예상 수량</span>
+                            <span>약 {estimatedTotalQty}주</span>
                         </div>
                     </div>
 
                     <button
                         onClick={handleSchedule}
-                        disabled={isLoading || totalQty <= 0 || period <= 0}
+                        disabled={isLoading || totalAmount <= 0 || period <= 0}
                         className={cn(
                             "w-full py-3 rounded-xl font-bold text-white shadow transition-all flex items-center justify-center gap-2",
                             themeColor,

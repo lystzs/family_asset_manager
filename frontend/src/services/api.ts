@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/v1';
+const API_BASE_URL = 'http://localhost:8000/v1';
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
@@ -20,6 +20,7 @@ export interface Account {
     user_id: number;
     cano: string;
     acnt_prdt_cd: string;
+    hts_id?: string;
     api_expiry_date?: string;
     token_expired_at?: string;
 }
@@ -71,6 +72,31 @@ export interface OrderRequest {
 
 export const placeOrder = async (orderData: OrderRequest) => {
     const res = await api.post('/trade/order', orderData);
+    return res.data;
+};
+
+export const fetchUnfilledOrders = async (accountId: number) => {
+    const res = await api.get(`/trade/orders/unfilled/${accountId}`);
+    return res.data;
+};
+
+export const fetchExecutedOrders = async (accountId: number) => {
+    const res = await api.get(`/trade/orders/executed/${accountId}`);
+    return res.data;
+};
+
+export const reviseOrder = async (data: { account_id: number, orgn_odno: string, quantity: number, price: number, ord_dvsn: string, all_qty?: boolean }) => {
+    const res = await api.post("/trade/order/revise", data);
+    return res.data;
+};
+
+export const cancelOrder = async (data: { account_id: number, orgn_odno: string, quantity: number, all_qty?: boolean }) => {
+    const res = await api.post("/trade/order/cancel", data);
+    return res.data;
+};
+
+export const subscribeRealtimePrice = async (codes: string[]) => {
+    const res = await api.post("/ws/subscribe", { codes });
     return res.data;
 };
 
@@ -131,8 +157,30 @@ export interface TargetPortfolio {
 }
 
 // Scheduled Trading
-export const scheduleOrder = async (data: any) => {
+export interface ScheduleOrderParams {
+    account_id: number;
+    ticker: string;
+    stock_name: string;
+    action: "BUY" | "SELL";
+    total_quantity?: number;
+    daily_quantity?: number;
+    total_amount?: number;
+    daily_amount?: number;
+    order_mode: "QUANTITY" | "AMOUNT";
+}
+
+export const scheduleOrder = async (data: ScheduleOrderParams) => {
     const res = await api.post("/trade/schedule/schedule", data);
+    return res.data;
+};
+
+export const fetchScheduledOrders = async (accountId: number) => {
+    const res = await api.get(`/trade/schedule/list/${accountId}`);
+    return res.data;
+};
+
+export const cancelScheduledOrder = async (orderId: number) => {
+    const res = await api.delete(`/trade/schedule/${orderId}`);
     return res.data;
 };
 
@@ -164,6 +212,16 @@ export const fetchAccountPortfolio = async (accountId: number) => {
     return res.data;
 };
 
+export const fetchAssetHistory = async (accountId: number) => {
+    const res = await api.get(`/accounts/${accountId}/history`);
+    return res.data;
+};
+
+export const fetchAllAssetHistory = async () => {
+    const res = await api.get('/accounts/history/aggregate');
+    return res.data;
+};
+
 export const saveTargetPortfolio = async (accountId: number, data: { stock_code: string, stock_name: string, target_percentage: number }) => {
     const res = await api.post<TargetPortfolio>(`/portfolio/${accountId}`, { ...data, account_id: accountId });
     return res.data;
@@ -177,4 +235,52 @@ export const deleteTargetPortfolio = async (id: number) => {
 export const analyzeRebalance = async (userId: number, accountId: number) => {
     const res = await api.get<RebalanceAnalysis>(`/portfolio/${userId}/analysis/${accountId}`);
     return res.data;
+};
+
+// WebSocket Hook
+import { useRef } from 'react';
+
+export const useWebSocket = (accountId: number, onMessage: (msg: any) => void) => {
+    const ws = useRef<WebSocket | null>(null);
+
+    const connect = () => {
+        // Close existing
+        if (ws.current) ws.current.close();
+
+        const wsUrl = `ws://localhost:8000/v1/ws/orders/${accountId}`;
+        // Note: Replace localhost with your actual API domain in production
+
+        ws.current = new WebSocket(wsUrl);
+
+        ws.current.onopen = () => {
+            console.log("WS Connected");
+        };
+
+        ws.current.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                onMessage(data);
+            } catch (e) {
+                console.error("WS Parse Error", e);
+            }
+        };
+
+        ws.current.onclose = () => {
+            console.log("WS Closed");
+            // Optional: Reconnect logic could go here
+        };
+
+        ws.current.onerror = (error) => {
+            console.error("WS Error", error);
+        };
+    };
+
+    const disconnect = () => {
+        if (ws.current) {
+            ws.current.close();
+            ws.current = null;
+        }
+    };
+
+    return { connect, disconnect };
 };

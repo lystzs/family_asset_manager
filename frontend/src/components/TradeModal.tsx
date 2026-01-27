@@ -11,10 +11,11 @@ interface TradeModalProps {
     account: Account;
     suggestion: TradeSuggestion;
     availableCash: number;
+    unfilledOrders?: any[]; // Added optional prop
     onSuccess: () => void;
 }
 
-export function TradeModal({ isOpen, onClose, account, suggestion, availableCash, onSuccess }: TradeModalProps) {
+export function TradeModal({ isOpen, onClose, account, suggestion, availableCash, unfilledOrders = [], onSuccess }: TradeModalProps) {
     const [price, setPrice] = useState<number>(suggestion.current_price);
     const [quantity, setQuantity] = useState<number>(suggestion.suggested_qty);
     const [isLoading, setIsLoading] = useState(false);
@@ -32,9 +33,25 @@ export function TradeModal({ isOpen, onClose, account, suggestion, availableCash
 
     const isBuy = suggestion.action === "BUY";
     const totalAmount = price * quantity;
+
+    // Calculate Locked Quantity from Unfilled Sell Orders
+    // sll_buy_dvsn_cd: '02' is Buy, '01' is Sell
+    const lockedQty = !isBuy
+        ? unfilledOrders
+            .filter(o => {
+                const isSell = o.sll_buy_dvsn_cd === '01' || o.sll_buy_dvsn_cd === '1'; // Check for Sell codes
+                const isMatch = o.pdno === suggestion.stock_code;
+                return isMatch && isSell;
+            })
+            .reduce((sum, o) => sum + parseInt(o.rmn_qty || o.psbl_qty || o.nccs_qty || '0'), 0)
+        : 0;
+
+
+
+
     const maxQty = isBuy
         ? Math.floor(availableCash / (price > 0 ? price : 1))
-        : suggestion.current_qty; // For SELL, max is holding qty. Actually suggestion.current_qty is holding qty.
+        : Math.max(0, suggestion.current_qty - lockedQty); // Subtract locked qty for Sell
 
     const handlePercentageClick = (percent: number) => {
         if (percent === 100) {
@@ -203,6 +220,7 @@ export function TradeModal({ isOpen, onClose, account, suggestion, availableCash
                         </div>
                         <div className="text-right text-xs text-muted-foreground">
                             가능수량: <span className={cn("font-bold", isBuy ? "text-green-600" : "text-foreground")}>{maxQty.toLocaleString()}주</span> 가능
+                            {lockedQty > 0 && <span className="text-red-500 ml-1"> (미체결 {lockedQty}주 제외)</span>}
                         </div>
                     </div>
 
@@ -226,10 +244,10 @@ export function TradeModal({ isOpen, onClose, account, suggestion, availableCash
 
                     <button
                         onClick={handleOrder}
-                        disabled={isLoading || quantity <= 0}
+                        disabled={isLoading || quantity <= 0 || quantity > maxQty}
                         className={cn(
                             "w-full py-4 rounded-xl font-bold text-white text-lg shadow-md hover:shadow-lg transition-all active:scale-[0.98]",
-                            isLoading ? "opacity-70" : "",
+                            isLoading || quantity <= 0 || quantity > maxQty ? "opacity-50 cursor-not-allowed" : "",
                             themeColor,
                             "hover:opacity-90"
                         )}
@@ -240,7 +258,9 @@ export function TradeModal({ isOpen, onClose, account, suggestion, availableCash
                                 처리중...
                             </div>
                         ) : (
-                            <span>{isBuy ? "매수 주문" : "매도 주문"}</span>
+                            <span>
+                                {quantity > maxQty ? "가능수량 초과" : (isBuy ? "매수 주문" : "매도 주문")}
+                            </span>
                         )}
                     </button>
                 </div>
