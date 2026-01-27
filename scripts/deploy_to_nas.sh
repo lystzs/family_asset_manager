@@ -121,7 +121,9 @@ ssh -t -p "${SSH_PORT}" "${NAS_USER}@${NAS_IP}" "mkdir -p ${DEST_DIR} && cd ${DE
 echo -e "${YELLOW}[5/5] Deploying Containers...${NC}"
 DEPLOY_CMD="export PATH=\$PATH:/usr/local/bin && \
     export NEXT_PUBLIC_API_URL=http://${NAS_IP}:8000 && \
-    if command -v docker-compose &> /dev/null; then \
+    if [ -x /usr/local/bin/docker ]; then \
+        sudo /usr/local/bin/docker compose up -d --build; \
+    elif command -v docker-compose &> /dev/null; then \
         sudo docker-compose up -d --build; \
     elif command -v docker &> /dev/null; then \
         sudo docker compose up -d --build; \
