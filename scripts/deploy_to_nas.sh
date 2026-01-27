@@ -2,7 +2,7 @@
 
 # Default Configuration
 NAS_IP="192.168.68.51"
-DEFAULT_NAS_USER="admin"  # Change this or input when prompted
+DEFAULT_NAS_USER="lystzs"  # Change this or input when prompted
 DEFAULT_DEST_DIR="/volume1/docker/fam"
 DEFAULT_SSH_PORT="50022"
 
