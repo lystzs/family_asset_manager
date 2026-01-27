@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/v1`
+    : 'http://localhost:8000/v1';
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
@@ -237,6 +239,17 @@ export const analyzeRebalance = async (userId: number, accountId: number) => {
     return res.data;
 };
 
+// Batch Jobs
+export const fetchBatchJobs = async () => {
+    const res = await api.get('/batch/jobs');
+    return res.data;
+};
+
+export const triggerBatchJob = async (jobId: string) => {
+    const res = await api.post(`/batch/exec/${jobId}`);
+    return res.data;
+};
+
 // WebSocket Hook
 import { useRef } from 'react';
 
@@ -247,8 +260,9 @@ export const useWebSocket = (accountId: number, onMessage: (msg: any) => void) =
         // Close existing
         if (ws.current) ws.current.close();
 
-        const wsUrl = `ws://localhost:8000/v1/ws/orders/${accountId}`;
-        // Note: Replace localhost with your actual API domain in production
+        const wsBase = API_BASE_URL.replace(/^http/, 'ws');
+        const wsUrl = `${wsBase}/ws/orders/${accountId}`;
+        // Note: Using dynamic URL based on env config
 
         ws.current = new WebSocket(wsUrl);
 

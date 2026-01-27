@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from backend.app.api.endpoints import users, accounts, trade, stocks, portfolio, scheduled_trade, websocket
+from backend.app.api.endpoints import users, accounts, trade, stocks, portfolio, scheduled_trade, websocket, batch, sync
 
 api_router = APIRouter()
 api_router.include_router(users.router, prefix="/users", tags=["users"])
@@ -9,3 +9,5 @@ api_router.include_router(stocks.router, prefix="/stocks", tags=["stocks"])
 api_router.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
 api_router.include_router(scheduled_trade.router, prefix="/trade/schedule", tags=["scheduled-trade"])
 api_router.include_router(websocket.router, prefix="/ws", tags=["websocket"])
+api_router.include_router(batch.router, prefix="/batch", tags=["batch"])
+api_router.include_router(sync.router, prefix="/sync", tags=["sync"])

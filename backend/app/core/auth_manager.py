@@ -28,8 +28,36 @@ class AuthManager:
 
     @classmethod
     def _refresh_token(cls, account: Account, db: Session) -> str:
-        # print(f"[Auth] Refreshing Access Token for Account {account.alias}...")
-        
+        # Check if acting as Client (Proxy Mode)
+        if settings.MASTER_API_URL:
+            try:
+                print(f"[Auth] Fetching token from Master: {settings.MASTER_API_URL}")
+                sync_url = f"{settings.MASTER_API_URL}/v1/sync/kis-token/{account.account_number}"
+                res = requests.get(sync_url, headers={"x-sync-key": settings.SYNC_API_KEY}, timeout=5)
+                res.raise_for_status()
+                data = res.json()
+                
+                new_token = data["access_token"]
+                expired_at_str = data["expired_at"] # ISO format
+                
+                # Update Local DB
+                account.access_token = encrypt_data(new_token)
+                if expired_at_str:
+                    account.token_expired_at = datetime.fromisoformat(expired_at_str)
+                
+                db.commit()
+                db.refresh(account)
+                return new_token
+            except Exception as e:
+                print(f"[Auth] Failed to sync token from Master: {e}")
+                print(f"[Auth] Falling back to Direct KIS Refresh (WARNING: Risk of Conflict)")
+                # Proceed to normal refresh below as fallback?
+                # Or re-raise? 
+                # If we fallback, we risk invalidating Master. It's safer to Fail.
+                # But user might want fallback. Let's fallback but Log heavily.
+                pass 
+
+        # Normal Direct Refresh Logic
         url = f"{get_base_url()}/oauth2/tokenP"
         
         app_key = decrypt_data(account.app_key)

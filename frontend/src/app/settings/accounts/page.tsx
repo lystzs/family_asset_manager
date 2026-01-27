@@ -203,6 +203,7 @@ export default function AccountsPage() {
                                 type="password"
                                 value={accKey}
                                 onChange={(e) => setAccKey(e.target.value)}
+                                autoComplete="new-password"
                                 className="w-full rounded-md border border-border bg-background px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             />
                         </div>
@@ -212,6 +213,7 @@ export default function AccountsPage() {
                                 type="password"
                                 value={accSecret}
                                 onChange={(e) => setAccSecret(e.target.value)}
+                                autoComplete="new-password"
                                 className="w-full rounded-md border border-border bg-background px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             />
                         </div>

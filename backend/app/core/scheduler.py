@@ -232,6 +232,12 @@ def record_daily_asset_job():
         db.close()
 
 def start_scheduler():
+    from backend.app.core.config import settings
+    
+    if not settings.SCHEDULER_ENABLED:
+        logger.info("[Scheduler] Scheduler is DISABLED by configuration.")
+        return
+
     # 1. Update: Sell orders at 12:15 PM
     scheduler.add_job(execute_orders_by_action, 'cron', args=['SELL'], hour=12, minute=15, id='daily_sell_job')
     

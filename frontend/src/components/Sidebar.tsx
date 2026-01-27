@@ -17,6 +17,7 @@ const settingItems = [
     { name: "계좌 관리", href: "/settings/accounts", icon: CreditCard },
     { name: "토큰 관리", href: "/settings/tokens", icon: Settings },
     { name: "종목 마스터", href: "/settings/stocks", icon: TrendingUp },
+    { name: "시스템 설정", href: "/settings/system", icon: Settings },
 ];
 
 export function Sidebar() {

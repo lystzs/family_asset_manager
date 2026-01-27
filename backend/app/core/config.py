@@ -12,6 +12,15 @@ class Settings(BaseSettings):
     KIS_APP_SECRET: str = ""
     KIS_ACCOUNT_NO: str = ""
     
+    # Scheduler
+    SCHEDULER_ENABLED: bool = True
+    
+    # Token Sync (Multi-Server)
+    MASTER_API_URL: str = "" # If set, this server acts as a Client (Slave)
+    SYNC_API_KEY: str = "fam_sync_secret" # Simple shared secret
+    
+    # Paths
+    
     # Paths
     # backend/app/core/config.py -> backend/app/core -> backend/app -> backend -> root
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
