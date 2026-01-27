@@ -427,7 +427,7 @@ export default function Dashboard() {
       )}
 
       {/* Metrics Row 1 */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-xl bg-white border border-border p-6 shadow-sm transition-all hover:shadow-md">
           <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">주식 평가금액</p>
           <p className="text-2xl font-bold text-foreground">{stockValuation.toLocaleString()}원</p>
@@ -457,7 +457,7 @@ export default function Dashboard() {
       </div>
 
       {/* Metrics Row 2 */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl bg-primary/5 border border-primary/20 p-6 shadow-sm">
           <p className="text-xs font-bold text-primary mb-2 uppercase tracking-wider">총 평가 자산</p>
           <p className="text-2xl font-bold text-primary">{totalAsset.toLocaleString()}원</p>
@@ -477,136 +477,249 @@ export default function Dashboard() {
       </div>
 
 
-      {/* Holdings Table */}
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-border bg-muted/30">
+      {/* Holdings List (Responsive) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">보유 종목 리스트</h3>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">{holdings.length} 종목</span>
         </div>
-        {holdings.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground border-b border-border">
-                <tr>
-                  <th className="px-4 py-4 text-left font-medium">종목명</th>
-                  <th className="px-4 py-4 text-center font-medium">수량</th>
-                  <th className="px-4 py-4 text-right font-medium">평균단가</th>
-                  <th className="px-4 py-4 text-right font-medium">현재가</th>
-                  <th className="px-4 py-4 text-right font-medium text-xs text-muted-foreground">전일가</th>
-                  <th className="px-4 py-4 text-right font-medium">등락</th>
-                  <th className="px-4 py-4 text-right font-medium">매입금액</th>
-                  <th className="px-4 py-4 text-right font-medium">평가금액</th>
-                  <th className="px-4 py-4 text-right font-medium">평가손익</th>
-                  <th className="px-4 py-4 text-right font-medium">수익률</th>
-                  <th className="px-4 py-4 text-center font-medium text-xs text-muted-foreground">
-                    자산<br />비중
-                  </th>
-                  <th className="px-4 py-4 text-center font-medium text-xs text-muted-foreground">
-                    목표<br />비중
-                  </th>
-                  <th className="px-4 py-4 text-center font-medium">주문</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {holdings.map((h: any, i: number) => {
-                  const currentPrice = parseInt(h.prpr || "0");
-                  const qty = parseInt(h.hldg_qty || "0");
-                  const avgPrice = parseFloat(h.pchs_avg_pric || "0");
-                  const purchaseAmount = parseInt(h.pchs_amt || "0");
-                  const profitLoss = parseInt(h.evlu_pfls_amt || "0");
-                  const profitRateValue = parseFloat(h.evlu_pfls_rt || "0");
-                  const changeRate = parseFloat(h.prdy_ctrt || h.fltt_rt || "0");
-                  const evalAmt = parseInt(h.evlu_amt || "0");
 
-                  // Weights Calculation
-                  const stockWeight = stockValuation > 0
-                    ? (evalAmt / stockValuation) * 100
-                    : 0;
-                  const assetWeight = totalAsset > 0
-                    ? (evalAmt / totalAsset * 100)
-                    : 0;
+        {/* Mobile Card View (< md) */}
+        <div className="grid gap-4 md:hidden">
+          {holdings.length > 0 ? (
+            holdings.map((h: any, i: number) => {
+              const currentPrice = parseInt(h.prpr || "0");
+              const qty = parseInt(h.hldg_qty || "0");
+              const avgPrice = parseFloat(h.pchs_avg_pric || "0");
+              const purchaseAmount = parseInt(h.pchs_amt || "0");
+              const profitLoss = parseInt(h.evlu_pfls_amt || "0");
+              const profitRateValue = parseFloat(h.evlu_pfls_rt || "0");
+              const changeRate = parseFloat(h.prdy_ctrt || h.fltt_rt || "0");
+              const evalAmt = parseInt(h.evlu_amt || "0");
 
-                  // Target Weight
-                  const targetItem = targets.find(t => t.stock_code === h.pdno);
-                  const targetWeight = targetItem ? targetItem.target_percentage : 0;
+              // Weights
+              const targetItem = targets.find(t => t.stock_code === h.pdno);
+              const targetWeight = targetItem ? targetItem.target_percentage : 0;
+              const stockWeight = stockValuation > 0 ? (evalAmt / stockValuation) * 100 : 0;
 
-                  return (
-                    <tr key={i} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-5">
-                        <div className="flex flex-col">
-                          {h.pdno === 'CASH' ? (
-                            <span className="font-bold text-primary">{h.prdt_name}</span>
-                          ) : (
-                            <a
-                              href={`https://stock.naver.com/domestic/stock/${h.pdno}/price`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-bold text-primary hover:underline hover:text-blue-600 transition-colors cursor-pointer"
-                            >
-                              {h.prdt_name}
-                            </a>
-                          )}
-                          <span className="text-[10px] text-muted-foreground font-mono">{h.pdno}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-5 text-center font-medium">{qty.toLocaleString()}주</td>
-                      <td className="px-4 py-5 text-right text-muted-foreground">{Math.round(avgPrice).toLocaleString()}원</td>
-                      <td className="px-4 py-5 text-right font-bold">{currentPrice.toLocaleString()}원</td>
-                      <td className="px-4 py-5 text-right text-[10px] text-muted-foreground font-medium">
-                        {(parseInt(h.prpr || "0") - parseInt(h.prdy_vrss || "0")).toLocaleString()}원
-                      </td>
-                      <td className={`px-4 py-5 text-right font-bold ${changeRate >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+              return (
+                <div key={i} className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        {h.pdno === 'CASH' ? (
+                          <span className="font-bold text-lg text-primary">{h.prdt_name}</span>
+                        ) : (
+                          <a
+                            href={`https://stock.naver.com/domestic/stock/${h.pdno}/price`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-bold text-lg text-primary hover:underline hover:text-blue-600 transition-colors"
+                          >
+                            {h.prdt_name}
+                          </a>
+                        )}
+                        <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{h.pdno}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold">{currentPrice.toLocaleString()}원</div>
+                      <div className={`text-xs font-bold ${changeRate >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
                         {changeRate >= 0 ? '▲' : '▼'}{Math.abs(changeRate).toFixed(2)}%
-                      </td>
-                      <td className="px-4 py-5 text-right font-medium">{purchaseAmount.toLocaleString()}원</td>
-                      <td className="px-4 py-5 text-right font-bold">{evalAmt.toLocaleString()}원</td>
-                      <td className={`px-4 py-5 text-right font-bold ${profitLoss >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                        {profitLoss >= 0 ? '+' : ''}{profitLoss.toLocaleString()}원
-                      </td>
-                      <td className={`px-4 py-5 text-right font-black ${profitRateValue >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                        {profitRateValue >= 0 ? '+' : ''}{profitRateValue}%
-                      </td>
-                      <td className="px-4 py-5 text-center font-medium text-muted-foreground">
-                        {assetWeight.toFixed(1)}%
-                      </td>
-                      <td className="px-4 py-5 text-center font-medium text-primary">
-                        {targetItem ? `${targetWeight}%` : '-'}
-                      </td>
-                      <td className="px-4 py-5 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          {selectedAccount && ( // Only show buttons if a specific account is selected (not "All")
-                            <>
-                              <button
-                                onClick={() => handleTrade(h, "BUY")}
-                                className="p-1.5 rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
-                                title="매수"
-                              >
-                                <TrendingUp className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleTrade(h, "SELL")}
-                                className="p-1.5 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-                                title="매도"
-                              >
-                                <TrendingDown className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="px-6 py-20 text-center flex flex-col items-center gap-2">
-            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-              <Wallet className="h-6 w-6" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm bg-muted/20 p-3 rounded-lg">
+                    <div className="text-muted-foreground">보유수량</div>
+                    <div className="text-right font-medium">{qty.toLocaleString()}주</div>
+
+                    <div className="text-muted-foreground">평균단가</div>
+                    <div className="text-right font-medium">{Math.round(avgPrice).toLocaleString()}원</div>
+
+                    <div className="text-muted-foreground">평가금액</div>
+                    <div className="text-right font-bold">{evalAmt.toLocaleString()}원</div>
+
+                    <div className="text-muted-foreground">평가손익</div>
+                    <div className={`text-right font-bold ${profitLoss >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                      {profitLoss >= 0 ? '+' : ''}{profitLoss.toLocaleString()}원 ({profitRateValue}%)
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <div className="flex gap-4 text-xs">
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">비중</span>
+                        <span className="font-medium text-foreground">{stockWeight.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">목표</span>
+                        <span className="font-medium text-foreground">{targetItem ? `${targetWeight}%` : '-'}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {selectedAccount && (
+                        <>
+                          <button
+                            onClick={() => handleTrade(h, "BUY")}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors text-xs font-bold"
+                          >
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            매수
+                          </button>
+                          <button
+                            onClick={() => handleTrade(h, "SELL")}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-bold"
+                          >
+                            <TrendingDown className="h-3.5 w-3.5" />
+                            매도
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-8 text-center flex flex-col items-center gap-2 bg-card rounded-xl border border-border dashed">
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium">보유한 주식이 없습니다.</p>
             </div>
-            <p className="text-muted-foreground font-medium">보유한 주식이 없습니다.</p>
-          </div>
-        )}
+          )}
+        </div>
+
+
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden md:block rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          {holdings.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="px-4 py-4 text-left font-medium">종목명</th>
+                    <th className="px-4 py-4 text-center font-medium">수량</th>
+                    <th className="px-4 py-4 text-right font-medium">평균단가</th>
+                    <th className="px-4 py-4 text-right font-medium">현재가</th>
+                    <th className="px-4 py-4 text-right font-medium text-xs text-muted-foreground">전일가</th>
+                    <th className="px-4 py-4 text-right font-medium">등락</th>
+                    <th className="px-4 py-4 text-right font-medium">매입금액</th>
+                    <th className="px-4 py-4 text-right font-medium">평가금액</th>
+                    <th className="px-4 py-4 text-right font-medium">평가손익</th>
+                    <th className="px-4 py-4 text-right font-medium">수익률</th>
+                    <th className="px-4 py-4 text-center font-medium text-xs text-muted-foreground">
+                      자산<br />비중
+                    </th>
+                    <th className="px-4 py-4 text-center font-medium text-xs text-muted-foreground">
+                      목표<br />비중
+                    </th>
+                    <th className="px-4 py-4 text-center font-medium">주문</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {holdings.map((h: any, i: number) => {
+                    const currentPrice = parseInt(h.prpr || "0");
+                    const qty = parseInt(h.hldg_qty || "0");
+                    const avgPrice = parseFloat(h.pchs_avg_pric || "0");
+                    const purchaseAmount = parseInt(h.pchs_amt || "0");
+                    const profitLoss = parseInt(h.evlu_pfls_amt || "0");
+                    const profitRateValue = parseFloat(h.evlu_pfls_rt || "0");
+                    const changeRate = parseFloat(h.prdy_ctrt || h.fltt_rt || "0");
+                    const evalAmt = parseInt(h.evlu_amt || "0");
+
+                    // Weights Calculation
+                    const stockWeight = stockValuation > 0
+                      ? (evalAmt / stockValuation) * 100
+                      : 0;
+                    const assetWeight = totalAsset > 0
+                      ? (evalAmt / totalAsset * 100)
+                      : 0;
+
+                    // Target Weight
+                    const targetItem = targets.find(t => t.stock_code === h.pdno);
+                    const targetWeight = targetItem ? targetItem.target_percentage : 0;
+
+                    return (
+                      <tr key={i} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-5">
+                          <div className="flex flex-col">
+                            {h.pdno === 'CASH' ? (
+                              <span className="font-bold text-primary">{h.prdt_name}</span>
+                            ) : (
+                              <a
+                                href={`https://stock.naver.com/domestic/stock/${h.pdno}/price`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-bold text-primary hover:underline hover:text-blue-600 transition-colors cursor-pointer"
+                              >
+                                {h.prdt_name}
+                              </a>
+                            )}
+                            <span className="text-[10px] text-muted-foreground font-mono">{h.pdno}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-5 text-center font-medium">{qty.toLocaleString()}주</td>
+                        <td className="px-4 py-5 text-right text-muted-foreground">{Math.round(avgPrice).toLocaleString()}원</td>
+                        <td className="px-4 py-5 text-right font-bold">{currentPrice.toLocaleString()}원</td>
+                        <td className="px-4 py-5 text-right text-[10px] text-muted-foreground font-medium">
+                          {(parseInt(h.prpr || "0") - parseInt(h.prdy_vrss || "0")).toLocaleString()}원
+                        </td>
+                        <td className={`px-4 py-5 text-right font-bold ${changeRate >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                          {changeRate >= 0 ? '▲' : '▼'}{Math.abs(changeRate).toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-5 text-right font-medium">{purchaseAmount.toLocaleString()}원</td>
+                        <td className="px-4 py-5 text-right font-bold">{evalAmt.toLocaleString()}원</td>
+                        <td className={`px-4 py-5 text-right font-bold ${profitLoss >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                          {profitLoss >= 0 ? '+' : ''}{profitLoss.toLocaleString()}원
+                        </td>
+                        <td className={`px-4 py-5 text-right font-black ${profitRateValue >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                          {profitRateValue >= 0 ? '+' : ''}{profitRateValue}%
+                        </td>
+                        <td className="px-4 py-5 text-center font-medium text-muted-foreground">
+                          {assetWeight.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-5 text-center font-medium text-primary">
+                          {targetItem ? `${targetWeight}%` : '-'}
+                        </td>
+                        <td className="px-4 py-5 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            {selectedAccount && ( // Only show buttons if a specific account is selected (not "All")
+                              <>
+                                <button
+                                  onClick={() => handleTrade(h, "BUY")}
+                                  className="p-1.5 rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                                  title="매수"
+                                >
+                                  <TrendingUp className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleTrade(h, "SELL")}
+                                  className="p-1.5 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                                  title="매도"
+                                >
+                                  <TrendingDown className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="px-6 py-20 text-center flex flex-col items-center gap-2">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <Wallet className="h-6 w-6" />
+              </div>
+              <p className="text-muted-foreground font-medium">보유한 주식이 없습니다.</p>
+            </div>
+          )}
+        </div>
       </div>
 
 

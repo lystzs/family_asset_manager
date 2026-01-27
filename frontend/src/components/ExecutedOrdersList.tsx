@@ -34,7 +34,58 @@ export function ExecutedOrdersList({ orders, isLoading, error, onRefresh }: {
                 </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile Card View */}
+            <div className="md:hidden">
+                {(!orders || orders.length === 0) ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                        오늘 체결 내역이 없습니다.
+                    </div>
+                ) : (
+                    <div className="divide-y divide-border">
+                        {orders.map((order, i) => {
+                            const isBuy = order.sll_buy_dvsn_cd === '02' || order.sll_buy_dvsn_cd === '매수';
+                            return (
+                                <div key={i} className="p-4 space-y-3 bg-card">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <div className="font-bold text-foreground text-sm">
+                                                {order.prdt_name}
+                                                <span className="text-[10px] text-muted-foreground ml-1 font-mono">{order.pdno}</span>
+                                            </div>
+                                            <div className="text-xs text-muted-foreground font-mono">#{order.odno} • {order.ord_tmd.replace(/(\d{2})(\d{2})(\d{2})/, '$1:$2:$3')}</div>
+                                        </div>
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${isBuy ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                                            {isBuy ? '매수' : '매도'}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 text-sm bg-muted/30 p-3 rounded-lg">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">주문수량</span>
+                                            <span className="font-medium">{parseInt(order.ord_qty).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">주문단가</span>
+                                            <span className="font-medium">{parseInt(order.ord_unpr).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">체결수량</span>
+                                            <span className="font-bold text-green-600">{parseInt(order.tot_ccld_qty).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">평균체결가</span>
+                                            <span className="font-medium">{parseInt(order.avg_prvs || order.avg_unpr || '0').toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-muted-foreground border-b border-border">
                         <tr>

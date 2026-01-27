@@ -42,7 +42,71 @@ export function UnfilledOrdersList({ orders, isLoading, error, onRefresh, onRevi
                 </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile Card View */}
+            <div className="md:hidden">
+                {(!orders || orders.length === 0) ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                        미체결된 주문이 없습니다.
+                    </div>
+                ) : (
+                    <div className="divide-y divide-border">
+                        {orders.map((order, i) => {
+                            const rmnQty = order.rmn_qty || order.psbl_qty || order.nccs_qty || '0';
+                            return (
+                                <div key={i} className="p-4 space-y-3 bg-card">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <div className="font-bold text-foreground text-sm">
+                                                {order.prdt_name}
+                                                <span className="text-[10px] text-muted-foreground ml-1 font-mono">{order.pdno}</span>
+                                            </div>
+                                            <div className="text-xs text-muted-foreground font-mono">#{order.odno} • {order.ord_tmd}</div>
+                                        </div>
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${order.sll_buy_dvsn_cd === '02' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                                            {order.sll_buy_dvsn_cd === '02' ? '매수' : '매도'}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-2 text-sm bg-muted/30 p-3 rounded-lg">
+                                        <div className="text-center">
+                                            <div className="text-[10px] text-muted-foreground">주문수량</div>
+                                            <div className="font-medium">{parseInt(order.ord_qty).toLocaleString()}</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-[10px] text-muted-foreground">가격</div>
+                                            <div className="font-medium">{parseInt(order.ord_unpr).toLocaleString()}</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-[10px] text-muted-foreground">미체결</div>
+                                            <div className="font-bold text-amber-600">{parseInt(rmnQty).toLocaleString()}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end gap-2">
+                                        <button
+                                            onClick={() => onRevise(order)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors"
+                                        >
+                                            <Edit3 className="h-3.5 w-3.5" />
+                                            정정
+                                        </button>
+                                        <button
+                                            onClick={() => onCancel(order)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                            취소
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-muted-foreground border-b border-border">
                         <tr>

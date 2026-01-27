@@ -107,7 +107,7 @@ export function TradeModal({ isOpen, onClose, account, suggestion, availableCash
             <div className="w-full max-w-[480px] bg-background rounded-xl shadow-2xl overflow-hidden border border-border scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
 
                 {/* Header */}
-                <div className={cn("px-6 py-5 text-white flex justify-between items-start", themeColor)}>
+                <div className={cn("px-4 py-4 md:px-6 md:py-5 text-white flex justify-between items-start", themeColor)}>
                     <div>
                         <h2 className="text-xl font-bold flex items-center gap-2">
                             {suggestion.stock_code === 'CASH' ? (
@@ -135,7 +135,7 @@ export function TradeModal({ isOpen, onClose, account, suggestion, availableCash
                 </div>
 
                 {/* Body */}
-                <div className="p-5 space-y-6 overflow-y-auto">
+                <div className="p-4 md:p-5 space-y-6 overflow-y-auto">
                     {/* Order Type Tabs */}
                     <div className="grid grid-cols-2 bg-muted p-1 rounded-lg">
                         <button
@@ -232,7 +232,7 @@ export function TradeModal({ isOpen, onClose, account, suggestion, availableCash
                 </div>
 
                 {/* Footer */}
-                <div className="p-5 border-t border-border bg-background space-y-3">
+                <div className="p-4 md:p-5 border-t border-border bg-background space-y-3">
                     {/* Account Info */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                         <span>주문 계좌 정보</span>
