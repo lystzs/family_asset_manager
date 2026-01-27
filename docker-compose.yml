@@ -1,0 +1,46 @@
+services:
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-lystzs}/family_asset_manager-backend:latest
+    container_name: fam-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./backend/family_asset.db:/app/family_asset.db
+    environment:
+      - DATABASE_URL=sqlite:///family_asset.db
+    networks:
+      - fam-network
+
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-lystzs}/family_asset_manager-frontend:latest
+    container_name: fam-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - fam-network
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 300 --cleanup
+    environment:
+      - REPO_USER=${GITHUB_ACTOR}
+      - REPO_PASS=${GITHUB_TOKEN}
+    networks:
+      - fam-network
+
+networks:
+  fam-network:
+    driver: bridge

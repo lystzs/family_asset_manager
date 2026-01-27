@@ -1,0 +1,64 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Backend Build
+      - name: Build and push Backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Frontend Build
+      # Note: We use the production Dockerfile created in the repo, or we use a multi-stage one.
+      # Since we are on GitHub Actions, we can just use the standard multi-stage Dockerfile in frontend/Dockerfile
+      # But wait, our current frontend/Dockerfile is designed for the "Hybrid" approach (copying artifacts).
+      # We need a STANDARD multi-stage Dockerfile for CI/CD that does the build INSIDE the container.
+      # Let's check frontend/Dockerfile content first, but assuming we need to revert it to a standard build.
+      # FOR NOW, let's assume we will update frontend/Dockerfile to be a standard standalone builder if needed,
+      # OR we can do the "npm run build" step in the workflow and use the existing Dockerfile.
+      # Better approach: Fix frontend/Dockerfile to be a complete multi-stage build so it works in standard CI.
+      
+      - name: Build and push Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://192.168.68.51:8000
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

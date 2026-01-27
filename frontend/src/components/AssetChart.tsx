@@ -62,7 +62,7 @@ export function AssetChart({ data }: AssetChartProps) {
                         domain={['auto', 'auto']}
                     />
                     <Tooltip
-                        formatter={(value: number) => [`${(value * 10000).toLocaleString()}원`, '총 자산']}
+                        formatter={(value: any) => [`${(value * 10000).toLocaleString()}원`, '총 자산']}
                         labelFormatter={(label) => `${label}`}
                     />
                     <Area

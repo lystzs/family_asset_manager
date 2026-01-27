@@ -51,7 +51,7 @@ export function DailySplitModal({ isOpen, onClose, account, suggestion, onSucces
                 account_id: account.id,
                 ticker: suggestion.stock_code,
                 stock_name: suggestion.stock_name,
-                action: suggestion.action,
+                action: suggestion.action as "BUY" | "SELL",
                 order_mode: "AMOUNT",
                 total_amount: Math.floor(totalAmount), // Ensure integer
                 daily_amount: dailyAmount,
