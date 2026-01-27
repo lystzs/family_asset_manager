@@ -20,4 +20,4 @@ EXPOSE 8000
 # Adjusting pythonpath to include /app, so 'backend' package is found in /app/backend
 ENV PYTHONPATH=/app
 
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
