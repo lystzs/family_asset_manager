@@ -16,6 +16,8 @@ services:
       - fam-network
 
   frontend:
+    build:
+      context: ./frontend
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-lystzs}/family_asset_manager-frontend:latest
     container_name: fam-frontend
     restart: unless-stopped
