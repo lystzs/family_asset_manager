@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { AccountProvider } from "@/context/AccountContext";
+import { VersionFooter } from "@/components/VersionFooter";
 
 export const metadata: Metadata = {
   title: "Family Asset Manager",
@@ -23,6 +24,7 @@ export default function RootLayout({
               {children}
             </main>
           </div>
+          <VersionFooter />
         </AccountProvider>
       </body>
     </html>
