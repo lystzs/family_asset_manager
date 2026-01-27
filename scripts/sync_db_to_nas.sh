@@ -1,50 +1,50 @@
 #!/bin/bash
 
-# Configuration (match deploy_to_nas.sh)
+# Configuration
 NAS_IP="192.168.68.51"
-DEFAULT_NAS_USER="admin"
-DEFAULT_DEST_DIR="/volume1/docker/fam"
-DEFAULT_SSH_PORT="50022"
-LOCAL_DB_PATH="backend/family_asset.db"
+NAS_USER="lystzs"
+NAS_PORT="50022"
+NAS_DIR="/volume1/docker/fam"
+LOCAL_DB="data/fam.db"
+REMOTE_DB="$NAS_DIR/data/fam.db"
+NAS_PASS="s2010B491$"
 
-# Colors
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+echo "=== FAM Database Sync: Local -> NAS ==="
 
-echo -e "${GREEN}=== Family Asset Manager Database Sync (Local -> NAS) ===${NC}"
-
-# Get Credentials
-read -p "Enter NAS Username [${DEFAULT_NAS_USER}]: " NAS_USER
-NAS_USER=${NAS_USER:-$DEFAULT_NAS_USER}
-
-read -p "Enter SSH Port [${DEFAULT_SSH_PORT}]: " SSH_PORT
-SSH_PORT=${SSH_PORT:-$DEFAULT_SSH_PORT}
-
-read -p "Enter Target Directory on NAS [${DEFAULT_DEST_DIR}]: " DEST_DIR
-DEST_DIR=${DEST_DIR:-$DEFAULT_DEST_DIR}
-
-echo -e "${YELLOW}Source: ${LOCAL_DB_PATH}${NC}"
-echo -e "${YELLOW}Target: ${NAS_USER}@${NAS_IP}:${DEST_DIR}/backend/family_asset.db${NC}"
-echo -e "${RED}WARNING: This will OVERWRITE the database on the NAS.${NC}"
-read -p "Are you sure? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+# 1. Check local file
+if [ ! -f "$LOCAL_DB" ]; then
+    echo "Error: Local DB $LOCAL_DB not found!"
     exit 1
 fi
 
-# 1. Stop Backend to prevent corruption
-echo -e "${YELLOW}[1/3] Stopping remote backend container...${NC}"
-ssh -t -p "${SSH_PORT}" "${NAS_USER}@${NAS_IP}" "cd ${DEST_DIR} && export PATH=\$PATH:/usr/local/bin && (sudo docker compose stop backend || sudo docker-compose stop backend || sudo /usr/local/bin/docker-compose stop backend)"
+# 2. Stop Containers on NAS
+echo "[1/4] Stopping Backend Container on NAS..."
+# Try to find container name matching 'fam-backend'
+CONTAINER_NAME=$(ssh -p $NAS_PORT $NAS_USER@$NAS_IP "echo '$NAS_PASS' | sudo -S /usr/local/bin/docker ps --format '{{.Names}}' | grep fam-backend | head -n 1")
+if [ -z "$CONTAINER_NAME" ]; then
+    echo "Warning: fam-backend container not found. Proceeding with sync..."
+else
+    echo "Found container: $CONTAINER_NAME. Stopping..."
+    ssh -p $NAS_PORT $NAS_USER@$NAS_IP "echo '$NAS_PASS' | sudo -S /usr/local/bin/docker stop $CONTAINER_NAME"
+fi
 
-# 2. Transfer Database
-echo -e "${YELLOW}[2/3] Uploading database...${NC}"
-# Use scp with -O for compatibility if needed
-scp -O -P "${SSH_PORT}" "${LOCAL_DB_PATH}" "${NAS_USER}@${NAS_IP}:${DEST_DIR}/${LOCAL_DB_PATH}"
+# 3. Backup Remote DB and fix permissions
+echo "[2/4] Backing up and preparing permissions..."
+ssh -p $NAS_PORT $NAS_USER@$NAS_IP "echo '$NAS_PASS' | sudo -S cp $REMOTE_DB ${REMOTE_DB}.bak_$(date +%Y%m%d_%H%M%S) && echo '$NAS_PASS' | sudo -S chmod 666 $REMOTE_DB"
 
-# 3. Restart Backend
-echo -e "${YELLOW}[3/3] Restarting backend container...${NC}"
-ssh -t -p "${SSH_PORT}" "${NAS_USER}@${NAS_IP}" "cd ${DEST_DIR} && export PATH=\$PATH:/usr/local/bin && (sudo docker compose start backend || sudo docker-compose start backend || sudo /usr/local/bin/docker-compose start backend)"
+# 4. Sync
+echo "[3/4] Uploading Local DB to NAS..."
+# scp can fail if remote is owned by root, so we upload to a temp location and move
+cat "$LOCAL_DB" | ssh -p $NAS_PORT $NAS_USER@$NAS_IP "cat > /tmp/fam.db"
+ssh -p $NAS_PORT $NAS_USER@$NAS_IP "echo '$NAS_PASS' | sudo -S mv /tmp/fam.db $REMOTE_DB && echo '$NAS_PASS' | sudo -S chown lystzs:users $REMOTE_DB"
 
-echo -e "${GREEN}=== Database Sync Complete ===${NC}"
+# 5. Start Containers on NAS
+echo "[4/4] Restarting Backend Container on NAS..."
+if [ ! -z "$CONTAINER_NAME" ]; then
+    ssh -p $NAS_PORT $NAS_USER@$NAS_IP "echo '$NAS_PASS' | sudo -S /usr/local/bin/docker start $CONTAINER_NAME"
+else
+    # Fallback to docker-compose if we are in the right dir
+    ssh -p $NAS_PORT $NAS_USER@$NAS_IP "cd $NAS_DIR && echo '$NAS_PASS' | sudo -S /usr/local/bin/docker-compose up -d backend"
+fi
+
+echo "=== Sync Complete! ==="

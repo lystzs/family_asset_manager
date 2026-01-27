@@ -7,6 +7,7 @@ from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 scheduler = BackgroundScheduler()
 
