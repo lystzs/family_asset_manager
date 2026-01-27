@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # FAM Project Rules (.workspacerules)
 
 ## 1. Architecture & Safety
@@ -21,3 +25,7 @@
 ## 4. Task & Language
 - **Language:** 주석, 로그, 문서는 **한국어**, 코드는 **영어**로 작성합니다.
 - **Workflow:** 작업 전후 반드시 `plan.md`를 확인하고 진행률을 업데이트합니다.
+
+## 5. NAS SSH 비밀번호 : s2010B491$
+
+## 6. CI/CD: 개발에서 운영으로 배포시 프론엔드 하단의 버전을 업데이트한다.

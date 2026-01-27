@@ -234,9 +234,10 @@ def record_daily_asset_job():
 
 def start_scheduler():
     from backend.app.core.config import settings
-    
+    print(f"[Scheduler] Starting scheduler... Enabled={settings.SCHEDULER_ENABLED}")
     if not settings.SCHEDULER_ENABLED:
         logger.info("[Scheduler] Scheduler is DISABLED by configuration.")
+        print("[Scheduler] Scheduler is DISABLED by configuration.")
         return
 
     # 1. Update: Sell orders at 12:15 PM
@@ -252,4 +253,5 @@ def start_scheduler():
     scheduler.add_job(record_daily_asset_job, 'cron', hour=16, minute=0, id='daily_asset_recording')
     
     logger.info("Scheduler started with jobs: Sell(12:15), Buy(12:30), TokenRefresh(Every 1h), AssetRecord(16:00)")
+    print("[Scheduler] Scheduler started successfully with 4 jobs.")
     scheduler.start()

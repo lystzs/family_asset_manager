@@ -19,7 +19,7 @@ export function DailySplitModal({ isOpen, onClose, account, suggestion, onSucces
     // Simplifying to Amount based as requested.
 
     // State for Amount Mode
-    const [totalAmount, setTotalAmount] = useState<number>(suggestion.diff_value > 0 ? Math.floor(suggestion.diff_value) : 0);
+    const [totalAmount, setTotalAmount] = useState<number>(Math.floor(Math.abs(suggestion.diff_value)));
     const [period, setPeriod] = useState<number>(5); // Default 5 days
     const [isLoading, setIsLoading] = useState(false);
 
