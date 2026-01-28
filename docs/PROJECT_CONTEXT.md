@@ -39,7 +39,10 @@ We use a **Hybrid Deployment Strategy**. Understanding this is crucial for troub
 - **References**: See `docs/DEPLOYMENT_TROUBLESHOOTING.md` for detailed logs.
 
 ## 5. Recent Changelog
-- **v3.2.0**: Default NAS user changed to `lystzs`, version bump.
+- **v3.2.0**: 
+  - **Feature**: Full Mobile/Tablet Responsiveness (Collapsible Sidebar, Card Views for Holdings/Orders).
+  - **Refactor**: Default NAS user changed to `lystzs`.
+  - **Version**: Frontend bumped to 3.2.0.
 - **v3.1.1**: Fixed Daily Split Sell logic (Negative amounts), Frontend version display.
 - **Fix**: Resolved `ModuleNotFoundError` in Backend Dockerfile.
 - **Fix**: Standardized Docker Compose build context.

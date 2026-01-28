@@ -91,11 +91,16 @@ export function ScheduledOrdersList({ orders, isLoading, error, onCancel }: {
                                                             ? Math.floor(order.executed_amount / order.daily_amount)
                                                             : (order.daily_quantity > 0 ? Math.floor(order.executed_quantity / order.daily_quantity) : 0);
 
+                                                        // User wants "Current Day" (1-based), not "Completed Days" (0-based)
+                                                        // If 0 executed, show 1/8. If 1 executed, show 2/8.
+                                                        // Cap at totalDays.
+                                                        const currentDay = Math.min(executedDays + 1, totalDays);
+
                                                         const pct = isAmount && order.total_amount
                                                             ? Math.round((order.executed_amount / order.total_amount) * 100)
                                                             : (order.total_quantity ? Math.round((order.executed_quantity / order.total_quantity) * 100) : 0);
 
-                                                        return `${executedDays}/${totalDays}일 (${pct}%)`;
+                                                        return `${currentDay}/${totalDays}일차 (${pct}%)`;
                                                     })()}
                                                 </span>
                                             </div>
@@ -130,6 +135,6 @@ export function ScheduledOrdersList({ orders, isLoading, error, onCancel }: {
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div >
     );
 }

@@ -12,6 +12,7 @@ services:
       - ./backend/family_asset.db:/app/family_asset.db
     environment:
       - DATABASE_URL=sqlite:///family_asset.db
+      - TZ=Asia/Seoul
     networks:
       - fam-network
 
@@ -25,6 +26,7 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - TZ=Asia/Seoul
     depends_on:
       - backend
     networks:

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Settings, UserCircle, Users, CreditCard, TrendingUp, BarChart3, LineChart, X } from "lucide-react";
+import { LayoutDashboard, Settings, UserCircle, Users, CreditCard, TrendingUp, BarChart3, LineChart, X, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/context/AccountContext";
 
@@ -10,6 +10,7 @@ const navItems = [
     { name: "대시보드", href: "/", icon: LayoutDashboard },
     { name: "포트폴리오", href: "/portfolio", icon: BarChart3 },
     { name: "자산 변동 내역", href: "/history", icon: LineChart },
+    { name: "운영 로그", href: "/logs", icon: FileText },
 ];
 
 const settingItems = [

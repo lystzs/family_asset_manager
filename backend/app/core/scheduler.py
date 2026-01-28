@@ -9,7 +9,9 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-scheduler = BackgroundScheduler()
+from pytz import timezone
+
+scheduler = BackgroundScheduler(timezone=timezone('Asia/Seoul'))
 
 def get_db():
     db = SessionLocal()
