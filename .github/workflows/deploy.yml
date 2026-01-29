@@ -58,7 +58,6 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
-          build-args: |
-            NEXT_PUBLIC_API_URL=http://192.168.68.51:8000
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
