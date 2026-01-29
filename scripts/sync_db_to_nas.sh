@@ -6,7 +6,7 @@ NAS_USER="lystzs"
 NAS_PORT="50022"
 NAS_DIR="/volume1/docker/fam"
 LOCAL_DB="data/fam.db"
-REMOTE_DB="$NAS_DIR/data/fam.db"
+REMOTE_DB="$NAS_DIR/backend/family_asset.db"
 NAS_PASS="s2010B491$"
 
 echo "=== FAM Database Sync: Local -> NAS ==="

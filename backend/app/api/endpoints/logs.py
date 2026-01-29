@@ -19,7 +19,7 @@ def get_trade_logs(
     """
     try:
         logs = db.query(TradeLog).order_by(TradeLog.timestamp.desc()).offset(skip).limit(limit).all()
-        return logs
+        return [TradeLogSchema.model_validate(log) for log in logs]
     except Exception as e:
         print(f"Error fetching logs: {e}")
         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")

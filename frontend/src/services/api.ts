@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
     ? `${process.env.NEXT_PUBLIC_API_URL}/v1`
-    : 'http://localhost:8000/v1';
+    : '/api/proxy/v1';
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
@@ -260,7 +260,14 @@ export const useWebSocket = (accountId: number, onMessage: (msg: any) => void) =
         // Close existing
         if (ws.current) ws.current.close();
 
-        const wsBase = API_BASE_URL.replace(/^http/, 'ws');
+        let wsBase = API_BASE_URL;
+        if (wsBase.startsWith('/')) {
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            wsBase = `${protocol}://${window.location.host}${wsBase}`;
+        } else {
+            wsBase = wsBase.replace(/^http/, 'ws');
+        }
+
         const wsUrl = `${wsBase}/ws/orders/${accountId}`;
         // Note: Using dynamic URL based on env config
 

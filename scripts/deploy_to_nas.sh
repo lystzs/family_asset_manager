@@ -35,13 +35,34 @@ fi
 # 2. Local Build Process
 echo -e "${YELLOW}[1/5] Building Frontend Locally (Next.js)...${NC}"
 cd frontend
+
+# Temporarily rename .env.local to prevent it from being included in production build
+if [ -f ".env.local" ]; then
+    mv .env.local .env.local.backup
+    echo "  (Temporarily disabled .env.local for production build)"
+fi
+
 # Install dependencies if node_modules missing
 if [ ! -d "node_modules" ]; then
     echo "Installing dependencies..."
     npm ci
 fi
 echo "Running build..."
-NEXT_PUBLIC_API_URL="http://${NAS_IP}:8000" npm run build || { echo -e "${RED}Build failed!${NC}"; exit 1; }
+npm run build || { 
+    # Restore .env.local on build failure
+    if [ -f ".env.local.backup" ]; then
+        mv .env.local.backup .env.local
+    fi
+    echo -e "${RED}Build failed!${NC}"; 
+    exit 1; 
+}
+
+# Restore .env.local after successful build
+if [ -f ".env.local.backup" ]; then
+    mv .env.local.backup .env.local
+    echo "  (Restored .env.local for local development)"
+fi
+
 cd ..
 
 # 3. Assemble Artifacts
@@ -120,15 +141,14 @@ ssh -t -p "${SSH_PORT}" "${NAS_USER}@${NAS_IP}" "mkdir -p ${DEST_DIR} && cd ${DE
 
 echo -e "${YELLOW}[5/5] Deploying Containers...${NC}"
 DEPLOY_CMD="export PATH=\$PATH:/usr/local/bin && \
-    export NEXT_PUBLIC_API_URL=http://${NAS_IP}:8000 && \
     if [ -x /usr/local/bin/docker ]; then \
-        sudo /usr/local/bin/docker compose up -d --build; \
+        /usr/local/bin/docker compose up -d --build; \
     elif command -v docker-compose &> /dev/null; then \
-        sudo docker-compose up -d --build; \
+        docker-compose up -d --build; \
     elif command -v docker &> /dev/null; then \
-        sudo docker compose up -d --build; \
+        docker compose up -d --build; \
     elif [ -f /usr/local/bin/docker-compose ]; then \
-        sudo /usr/local/bin/docker-compose up -d --build; \
+        /usr/local/bin/docker-compose up -d --build; \
     else \
         echo 'Error: docker-compose not found.'; \
         exit 1; \

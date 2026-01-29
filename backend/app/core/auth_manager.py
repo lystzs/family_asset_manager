@@ -32,7 +32,9 @@ class AuthManager:
         if settings.MASTER_API_URL:
             try:
                 print(f"[Auth] Fetching token from Master: {settings.MASTER_API_URL}")
-                sync_url = f"{settings.MASTER_API_URL}/v1/sync/kis-token/{account.account_number}"
+                # Decrypt CANO for sync
+                account_number = decrypt_data(account.cano)
+                sync_url = f"{settings.MASTER_API_URL}/v1/sync/kis-token/{account_number}"
                 res = requests.get(sync_url, headers={"x-sync-key": settings.SYNC_API_KEY}, timeout=5)
                 res.raise_for_status()
                 data = res.json()

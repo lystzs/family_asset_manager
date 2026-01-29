@@ -26,7 +26,19 @@ def get_kis_token(account_number: str, db: Session = Depends(get_db), authorized
     Only allows extraction if local server has a valid one.
     Triggers refresh if local one is expired (act as Master).
     """
-    account = db.query(Account).filter(Account.account_number == account_number).first()
+    # Direct lookup is impossible due to encryption with random IV
+    # We must iterate and decrypt. Since account count is low (<10), this is acceptable.
+    accounts = db.query(Account).all()
+    account = None
+    for acc in accounts:
+        try:
+            decrypted_cano = decrypt_data(acc.cano)
+            if decrypted_cano == account_number:
+                account = acc
+                break
+        except Exception:
+            continue
+            
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     
