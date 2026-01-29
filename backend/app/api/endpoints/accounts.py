@@ -10,7 +10,7 @@ from typing import List
 
 router = APIRouter()
 
-@router.get("/", response_model=List[AccountWithUserResponse])
+@router.get("", response_model=List[AccountWithUserResponse])
 def get_all_accounts(db: Session = Depends(get_db)):
     accounts = db.query(Account).all()
     results = []
