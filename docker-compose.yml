@@ -10,7 +10,10 @@ services:
     volumes:
       - ./data:/app/data
       - ./backend/family_asset.db:/app/family_asset.db
+      - ./backend/service_account.json:/app/backend/service_account.json
+    env_file: .env
     environment:
+      - APP_ENV=prd
       - DATABASE_URL=sqlite:///family_asset.db
       - TZ=Asia/Seoul
     networks:

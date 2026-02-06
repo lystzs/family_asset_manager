@@ -31,6 +31,7 @@ frontend.log
 
 # Environment
 .env
+backend/service_account.json
 
 # MacOS
 .DS_Store

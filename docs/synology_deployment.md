@@ -17,6 +17,8 @@ You need to transfer the following files/folders to your NAS (e.g., to `/volume1
 - `backend/` (folder)
 - `frontend/` (folder)
 - `docker-compose.yml` (file)
+- `.env` (file - **Create this on NAS**)
+- `backend/service_account.json` (file - **Upload this to backend folder on NAS**)
 - `data/` (folder - create if empty, used for database)
 
 **Important**: 
@@ -26,9 +28,20 @@ You need to transfer the following files/folders to your NAS (e.g., to `/volume1
 
 ### 2. Configure Environment
 
-Open `docker-compose.yml` and check the environment variables.
-- `NEXT_PUBLIC_API_URL`: By default, this is set to `http://localhost:8000`. **You MUST change this** to your NAS IP address if you want to access it from other devices on your network.
-  Example: `NEXT_PUBLIC_API_URL=http://192.168.68.51:8000`
+1.  **Create `.env` file** in the root directory (same level as `docker-compose.yml`).
+2.  Add the following content (adjust values as needed):
+
+    ```env
+    # Google Sheets Config
+    GOOGLE_SHEET_ID="your_sheet_id_here"
+    GOOGLE_SHEET_TAB="Sheet1"
+    
+    # Other Settings
+    NEXT_PUBLIC_API_URL=http://192.168.68.51:8000
+    ```
+
+3.  **Note on `APP_ENV`**: The `docker-compose.yml` is configured to set `APP_ENV=prd` automatically, enabling the daily schedule.
+
 
 ### 3. Deploy using Container Manager
 
