@@ -75,6 +75,29 @@ def create_scheduled_order(req: ScheduleRequest, db: Session = Depends(get_db)):
 @router.get("/list/{account_id}")
 def list_scheduled_orders(account_id: int, db: Session = Depends(get_db)):
     orders = db.query(ScheduledOrder).filter(ScheduledOrder.account_id == account_id).all()
+    
+    # Check and update completion status for active orders
+    for order in orders:
+        if order.status == "ACTIVE":
+            is_completed = False
+            
+            if order.order_mode == "AMOUNT":
+                # Amount mode: check if executed amount >= total amount
+                if (order.total_amount is not None and 
+                    order.executed_amount is not None and 
+                    order.executed_amount >= order.total_amount):
+                    is_completed = True
+            else:
+                # Quantity mode: check if executed quantity >= total quantity
+                if (order.total_quantity is not None and 
+                    order.executed_quantity is not None and 
+                    order.executed_quantity >= order.total_quantity):
+                    is_completed = True
+            
+            if is_completed:
+                order.status = "COMPLETED"
+    
+    db.commit()
     return orders
 
 @router.delete("/{order_id}")
