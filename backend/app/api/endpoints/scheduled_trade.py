@@ -77,6 +77,7 @@ def list_scheduled_orders(account_id: int, db: Session = Depends(get_db)):
     orders = db.query(ScheduledOrder).filter(ScheduledOrder.account_id == account_id).all()
     
     # Check and update completion status for active orders
+    orders_updated = False
     for order in orders:
         if order.status == "ACTIVE":
             is_completed = False
@@ -96,8 +97,13 @@ def list_scheduled_orders(account_id: int, db: Session = Depends(get_db)):
             
             if is_completed:
                 order.status = "COMPLETED"
+                orders_updated = True
     
-    db.commit()
+    if orders_updated:
+        db.commit()
+        # Re-fetch orders to ensure we have fresh data and avoid expired objects
+        orders = db.query(ScheduledOrder).filter(ScheduledOrder.account_id == account_id).all()
+        
     return orders
 
 @router.delete("/{order_id}")
