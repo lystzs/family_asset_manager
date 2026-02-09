@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # App Mode
+    APP_ENV: str = "dev" # dev, prd
     # Security
     SECRET_KEY: str = "your_super_secret_key_for_encryption"
     ALGORITHM: str = "HS256"
@@ -18,6 +19,11 @@ class Settings(BaseSettings):
     # Token Sync (Multi-Server)
     MASTER_API_URL: str = "" # If set, this server acts as a Client (Slave)
     SYNC_API_KEY: str = "fam_sync_secret" # Simple shared secret
+    
+    # Google Sheets
+    GOOGLE_SHEET_JSON_PATH: str = "backend/service_account.json"
+    GOOGLE_SHEET_ID: str = ""
+    GOOGLE_SHEET_TAB: str = "Portfolio"
     
     # Paths
     

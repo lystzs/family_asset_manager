@@ -4,6 +4,7 @@ from backend.app.db.session import SessionLocal
 from backend.app.models import ScheduledOrder, Account, TradeLog
 from backend.app.core.kis_client import KisClient
 from datetime import datetime
+from backend.app.services.sheet_sync_service import SheetSyncService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ logger.setLevel(logging.INFO)
 from pytz import timezone
 
 scheduler = BackgroundScheduler(timezone=timezone('Asia/Seoul'))
+job_history = {} # Key: job_id, Value: {last_run, status, message}
 
 def get_db():
     db = SessionLocal()
@@ -234,6 +236,19 @@ def record_daily_asset_job():
     finally:
         db.close()
 
+def sync_google_sheet_job():
+    """
+    Job to sync investment list to Google Sheets
+    """
+    logger.info("[Scheduler] Starting Google Sheet Sync Job...")
+    db = SessionLocal()
+    try:
+        SheetSyncService.sync_daily_data(db)
+    except Exception as e:
+        logger.error(f"[Scheduler] Google Sheet Sync Failed: {e}")
+    finally:
+        db.close()
+
 def start_scheduler():
     from backend.app.core.config import settings
     print(f"[Scheduler] Starting scheduler... Enabled={settings.SCHEDULER_ENABLED}")
@@ -253,7 +268,29 @@ def start_scheduler():
     
     # 4. Daily Asset Recording: Daily at 4:00 PM
     scheduler.add_job(record_daily_asset_job, 'cron', hour=16, minute=0, id='daily_asset_recording')
+
+    # 5. Google Sheet Sync: Daily at 4:30 PM (Production Only)
+    if settings.APP_ENV == "prd":
+        scheduler.add_job(sync_google_sheet_job, 'cron', hour=16, minute=30, id='google_sheet_sync')
+        logger.info("[Scheduler] Registered Google Sheet Sync Job (PRD Mode)")
+    else:
+        logger.info("[Scheduler] Skipped Google Sheet Sync Job (Not PRD)")
     
-    logger.info("Scheduler started with jobs: Sell(12:15), Buy(12:30), TokenRefresh(Every 1h), AssetRecord(16:00)")
-    print("[Scheduler] Scheduler started successfully with 4 jobs.")
+    logger.info(f"Scheduler started. APP_ENV={settings.APP_ENV}")
+    print(f"[Scheduler] Scheduler started. APP_ENV={settings.APP_ENV}")
+
+    # Add Listener to track job history
+    from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
+    def save_job_history(event):
+        job_id = event.job_id
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        status = "SUCCESS" if not event.exception else "FAILED"
+        job_history[job_id] = {
+            "last_run": timestamp,
+            "status": status,
+            "message": str(event.exception) if event.exception else "Success"
+        }
+        logger.info(f"[Scheduler] Job {job_id} finished. Status: {status}")
+
+    scheduler.add_listener(save_job_history, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
     scheduler.start()

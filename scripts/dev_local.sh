@@ -16,20 +16,18 @@ trap cleanup EXIT
 
 # 1. Start Backend
 echo -e "${BLUE}[Backend] Starting FastAPI on port 8000...${NC}"
-cd backend
-# Create/Activate venv if needed check
-if [ -d "venv" ]; then
-    source venv/bin/activate
-elif [ -d ".venv" ]; then
-    source .venv/bin/activate
+# Check for venv in backend directory
+if [ -d "backend/venv" ]; then
+    source backend/venv/bin/activate
+elif [ -d "backend/.venv" ]; then
+    source backend/.venv/bin/activate
 else
     echo "Warning: No venv found. Running with system python3..."
 fi
 
-# Run uvicorn in background
-python3 -m uvicorn app.main:app --reload --port 8000 &
+# Run uvicorn in background from root
+python3 -m uvicorn backend.app.main:app --reload --port 8000 &
 BACKEND_PID=$!
-cd ..
 
 # 2. Start Frontend
 echo -e "${BLUE}[Frontend] Starting Next.js on port 3000...${NC}"

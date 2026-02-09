@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Settings, UserCircle, Users, CreditCard, TrendingUp, BarChart3, LineChart, X, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/context/AccountContext";
+import { APP_VERSION } from "@/lib/constants";
 
 const navItems = [
     { name: "대시보드", href: "/", icon: LayoutDashboard },
@@ -18,7 +19,8 @@ const settingItems = [
     { name: "계좌 관리", href: "/settings/accounts", icon: CreditCard },
     { name: "토큰 관리", href: "/settings/tokens", icon: Settings },
     { name: "종목 마스터", href: "/settings/stocks", icon: TrendingUp },
-    { name: "시스템 설정", href: "/settings/system", icon: Settings },
+    { name: "배치수동실행", href: "/settings/system", icon: Settings },
+    { name: "배치모니터링", href: "/settings/monitoring", icon: BarChart3 },
 ];
 
 interface SidebarProps {
@@ -51,7 +53,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
                             <span className="text-primary-foreground font-bold">F</span>
                         </div>
-                        <span className="text-xl font-bold tracking-tight">FAM v3.0</span>
+                        <span className="text-xl font-bold tracking-tight">FAM {APP_VERSION}</span>
                     </div>
                     {/* Close Button (Mobile Only) */}
                     <button
@@ -151,6 +153,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 {selectedAccount ? selectedAccount.cano : `${accounts.length}개 계좌`}
                             </p>
                         </div>
+                    </div>
+                    <div className="mt-2 px-2 text-xs text-muted-foreground text-center">
+                        {APP_VERSION}
                     </div>
                 </div>
             </div>

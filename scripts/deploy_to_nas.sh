@@ -16,6 +16,17 @@ echo -e "${GREEN}=== Family Asset Manager Synology Deployment (Hybrid Mode) ===$
 echo "This script will build the Frontend LOCALLY to save resources on your NAS."
 
 # 1. Get Credentials
+if [ ! -f "backend/service_account.json" ]; then
+    echo -e "${RED}Error: backend/service_account.json not found!${NC}"
+    echo "Please download the Google Service Account key and place it in backend/service_account.json"
+    exit 1
+fi
+
+if [ ! -f ".env" ]; then
+    echo -e "${RED}Error: .env file not found!${NC}"
+    exit 1
+fi
+
 read -p "Enter NAS Username [${DEFAULT_NAS_USER}]: " NAS_USER
 NAS_USER=${NAS_USER:-$DEFAULT_NAS_USER}
 
@@ -47,8 +58,8 @@ if [ ! -d "node_modules" ]; then
     echo "Installing dependencies..."
     npm ci
 fi
-echo "Running build..."
-npm run build || { 
+echo "Running build with API URL: http://${NAS_IP}:8000"
+NEXT_PUBLIC_API_URL="http://${NAS_IP}:8000" npm run build || { 
     # Restore .env.local on build failure
     if [ -f ".env.local.backup" ]; then
         mv .env.local.backup .env.local
@@ -130,12 +141,34 @@ scp -O -P "${SSH_PORT}" backend.tar.gz "${NAS_USER}@${NAS_IP}:${DEST_DIR}/"
 rm backend.tar.gz
 
 # Config
+# Config
 echo "  - Transferring Config..."
 scp -O -P "${SSH_PORT}" docker-compose.yml "${NAS_USER}@${NAS_IP}:${DEST_DIR}/"
+
+# Create temporary production .env
+echo "  - Preparing Production .env..."
+cp .env .env.tmp
+# Force Enable Scheduler and Set Environment to Production
+# check if SCHEDULER_ENABLED exists, if so replace it, else append it
+if grep -q "SCHEDULER_ENABLED" .env.tmp; then
+    sed -i '' 's/SCHEDULER_ENABLED=.*/SCHEDULER_ENABLED=True/' .env.tmp
+else
+    echo "SCHEDULER_ENABLED=True" >> .env.tmp
+fi
+
+if grep -q "APP_ENV" .env.tmp; then
+    sed -i '' 's/APP_ENV=.*/APP_ENV=prd/' .env.tmp
+else
+    echo "APP_ENV=prd" >> .env.tmp
+fi
+
+scp -O -P "${SSH_PORT}" .env.tmp "${NAS_USER}@${NAS_IP}:${DEST_DIR}/.env"
+rm .env.tmp
 
 # 5. Remote Setup & Deploy
 echo -e "${YELLOW}[4/5] Extracting on NAS...${NC}"
 ssh -t -p "${SSH_PORT}" "${NAS_USER}@${NAS_IP}" "mkdir -p ${DEST_DIR} && cd ${DEST_DIR} && \
+    rm -rf frontend backend && \
     tar -xzf frontend_deploy.tar.gz && rm frontend_deploy.tar.gz && \
     tar -xzf backend.tar.gz && rm backend.tar.gz"
 

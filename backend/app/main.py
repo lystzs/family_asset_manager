@@ -5,7 +5,7 @@ from backend.app.core.config import settings
 app = FastAPI(
     title="Family Asset Manager (FAM) Backend",
     description="API-First Infrastructure for Family Wealth & Quant Trading",
-    version="3.1.0",
+    version="3.3.0",
 )
 
 # CORS

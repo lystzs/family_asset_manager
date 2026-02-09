@@ -12,3 +12,5 @@ pytest-mock>=3.11.0
 httpx>=0.24.0
 websockets>=11.0
 pytz>=2023.3
+gspread>=5.10.0
+oauth2client>=4.1.3

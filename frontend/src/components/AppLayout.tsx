@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { VersionFooter } from "@/components/VersionFooter";
 import { Menu } from "lucide-react";
+import { APP_VERSION } from "@/lib/constants";
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -22,7 +23,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 >
                     <Menu className="h-5 w-5" />
                 </button>
-                <span className="font-bold tracking-tight text-lg">FAM v3.0</span>
+                <span className="font-bold tracking-tight text-lg">FAM {APP_VERSION}</span>
             </div>
 
             <Sidebar
