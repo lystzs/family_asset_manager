@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List
 from backend.app.db.session import get_db
-from backend.app.models import ScheduledOrder, Account
+from backend.app.models import ScheduledOrder, Account, TradeLog
+import math
 
 router = APIRouter()
 
@@ -83,18 +84,40 @@ def list_scheduled_orders(account_id: int, db: Session = Depends(get_db)):
             is_completed = False
             
             if order.order_mode == "AMOUNT":
-                # Amount mode: check if executed amount >= total amount
-                if (order.total_amount is not None and 
-                    order.executed_amount is not None and 
-                    order.executed_amount >= order.total_amount):
-                    is_completed = True
+                # Amount mode: check if executed amount >= total amount OR >= 99% (heuristic)
+                if (order.total_amount is not None and order.total_amount > 0 and 
+                    order.executed_amount is not None):
+                    if order.executed_amount >= order.total_amount:
+                        is_completed = True
+                    elif (order.executed_amount / order.total_amount) >= 0.99:
+                        is_completed = True
             else:
                 # Quantity mode: check if executed quantity >= total quantity
-                if (order.total_quantity is not None and 
-                    order.executed_quantity is not None and 
-                    order.executed_quantity >= order.total_quantity):
-                    is_completed = True
+                if (order.total_quantity is not None and order.total_quantity > 0 and
+                    order.executed_quantity is not None):
+                    if order.executed_quantity >= order.total_quantity:
+                        is_completed = True
+                    elif (order.executed_quantity / order.total_quantity) >= 0.99: # 99% quantity heuristic
+                        is_completed = True
             
+            # Check Day Count Logic (if not already completed)
+            if not is_completed:
+                expected_days = 0
+                if order.order_mode == "AMOUNT":
+                    if order.daily_amount > 0:
+                        expected_days = math.ceil(order.total_amount / order.daily_amount)
+                else:
+                    if order.daily_quantity > 0:
+                        expected_days = math.ceil(order.total_quantity / order.daily_quantity)
+                
+                if expected_days > 0:
+                    executed_days_count = db.query(TradeLog).filter(
+                        TradeLog.strategy_id == f"scheduled_{order.id}",
+                        TradeLog.status == "SUCCESS"
+                    ).count()
+                    if executed_days_count >= expected_days:
+                        is_completed = True
+
             if is_completed:
                 order.status = "COMPLETED"
                 orders_updated = True
