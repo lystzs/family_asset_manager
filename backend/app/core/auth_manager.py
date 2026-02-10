@@ -1,4 +1,5 @@
 import requests
+import threading
 import time
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -7,17 +8,29 @@ from backend.app.models import Account
 from backend.app.core.security import decrypt_data, encrypt_data
 
 class AuthManager:
+    _lock = threading.Lock()
+
     @classmethod
     def get_token(cls, account: Account, db: Session) -> str:
         """
         Get valid access token for the specific account.
         If expired or missing, refresh it synchronously and update DB.
         """
+        # 1. First check (Optimistic)
         if cls._is_token_valid(account):
             # Decrypt stored token
             return decrypt_data(account.access_token)
         
-        return cls._refresh_token(account, db)
+        # 2. Acquire Lock for Double-Checked Locking
+        with cls._lock:
+            # 3. Refresh instance state to ensure we have latest data
+            # (In case another thread updated it while we waited)
+            db.refresh(account)
+            
+            if cls._is_token_valid(account):
+                return decrypt_data(account.access_token)
+
+            return cls._refresh_token(account, db)
     
     @classmethod
     def _is_token_valid(cls, account: Account) -> bool:
