@@ -4,6 +4,7 @@ from backend.app.db.session import SessionLocal
 from backend.app.models import ScheduledOrder, Account, TradeLog
 from backend.app.core.kis_client import KisClient
 from datetime import datetime
+import math
 from backend.app.services.sheet_sync_service import SheetSyncService
 import logging
 
@@ -96,10 +97,20 @@ def execute_orders_by_action(action_type: str):
                     # success
                     if order.order_mode == "AMOUNT":
                         order.executed_amount += (qty_to_order * current_price)
+                        
+                        # 1. Total Amount Reached Check
                         if order.executed_amount >= order.total_amount:
                              order.status = "COMPLETED"
-                        # Also check if we should complete based on "Cannot buy more" logic?
-                        # For now, simplistic check.
+                        
+                        # 2. 97% Rule Check
+                        # If progress >= 97% AND remaining amount < current_price (cannot buy more)
+                        elif order.total_amount > 0:
+                            progress = order.executed_amount / order.total_amount
+                            remaining_amount = order.total_amount - order.executed_amount
+                            if progress >= 0.97 and remaining_amount < current_price:
+                                logger.info(f"Order #{order.id} Completed by 97% Rule (Prog: {progress:.2%}, Rem: {remaining_amount}, Price: {current_price})")
+                                order.status = "COMPLETED"
+
                     else:
                         order.executed_quantity += qty_to_order
                         if order.executed_quantity >= order.total_quantity:
@@ -117,6 +128,33 @@ def execute_orders_by_action(action_type: str):
                         message=res.get('msg1', 'Scheduled Execution')
                     )
                     db.add(log)
+                    
+                    # 3. Nth Day / 8th Day Rule Check
+                    # Calculate expected days
+                    expected_days = 0
+                    if order.order_mode == "AMOUNT":
+                         if order.daily_amount > 0:
+                            expected_days = math.ceil(order.total_amount / order.daily_amount)
+                    else:
+                         if order.daily_quantity > 0:
+                            expected_days = math.ceil(order.total_quantity / order.daily_quantity)
+                    
+                    # Check executed days (log count)
+                    # We count ALL logs for this order ID to see how many "attempts" were made.
+                    # Since we just added a log, it should be included.
+                    # Note: `db.add(log)` is pending commit, so `db.query` might not see it yet unless flushed?
+                    # SessionLocal usually autoflnshes on query if needed, but let's be safe.
+                    db.flush() 
+                    
+                    executed_days_count = db.query(TradeLog).filter(
+                        TradeLog.strategy_id == f"scheduled_{order.id}"
+                    ).count()
+                    
+                    if expected_days > 0 and executed_days_count >= expected_days:
+                        if order.status != "COMPLETED":
+                            logger.info(f"Order #{order.id} Completed by Day Count Rule ({executed_days_count}/{expected_days} days)")
+                            order.status = "COMPLETED"
+
                 else:
                     logger.error(f"Failed to execute order #{order.id}: {res.get('msg1')}")
                     # Log Failure

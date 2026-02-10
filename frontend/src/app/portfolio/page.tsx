@@ -89,16 +89,19 @@ export default function PortfolioPage() {
 
     // Collapsible State (Default: Open)
     const [isScheduledOpen, setIsScheduledOpen] = useState(true);
+    const [isCompletedOpen, setIsCompletedOpen] = useState(false);
     const [isUnfilledOpen, setIsUnfilledOpen] = useState(true);
     const [isExecutedOpen, setIsExecutedOpen] = useState(true);
 
     // Load collapsible state from localStorage on mount
     useEffect(() => {
         const savedScheduled = localStorage.getItem("portfolio_isScheduledOpen");
+        const savedCompleted = localStorage.getItem("portfolio_isCompletedOpen");
         const savedUnfilled = localStorage.getItem("portfolio_isUnfilledOpen");
         const savedExecuted = localStorage.getItem("portfolio_isExecutedOpen");
 
         if (savedScheduled !== null) setIsScheduledOpen(savedScheduled === "true");
+        if (savedCompleted !== null) setIsCompletedOpen(savedCompleted === "true");
         if (savedUnfilled !== null) setIsUnfilledOpen(savedUnfilled === "true");
         if (savedExecuted !== null) setIsExecutedOpen(savedExecuted === "true");
     }, []);
@@ -107,6 +110,10 @@ export default function PortfolioPage() {
     useEffect(() => {
         localStorage.setItem("portfolio_isScheduledOpen", String(isScheduledOpen));
     }, [isScheduledOpen]);
+
+    useEffect(() => {
+        localStorage.setItem("portfolio_isCompletedOpen", String(isCompletedOpen));
+    }, [isCompletedOpen]);
 
     useEffect(() => {
         localStorage.setItem("portfolio_isUnfilledOpen", String(isUnfilledOpen));
@@ -320,6 +327,10 @@ export default function PortfolioPage() {
     }, [selectedAccount]);
 
     const totalTargetPct = portfolio.reduce((acc, curr) => acc + curr.target_percentage, 0);
+
+    // Derived Lists
+    const activeScheduledOrders = scheduledOrders.filter(o => o.status === 'ACTIVE');
+    const completedScheduledOrders = scheduledOrders.filter(o => o.status === 'COMPLETED');
 
     if (!selectedAccount) {
         return (
@@ -767,9 +778,9 @@ export default function PortfolioPage() {
                         <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
                             일별 분할 예약 내역
                         </h3>
-                        {scheduledOrders.length > 0 && (
+                        {activeScheduledOrders.length > 0 && (
                             <span className="text-sm font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                                {scheduledOrders.length}
+                                {activeScheduledOrders.length}
                             </span>
                         )}
                         {isScheduledOpen ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
@@ -792,7 +803,7 @@ export default function PortfolioPage() {
                 {isScheduledOpen && selectedAccount && (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                         <ScheduledOrdersList
-                            orders={scheduledOrders}
+                            orders={activeScheduledOrders}
                             isLoading={isScheduledLoading}
                             error={scheduledError}
                             onCancel={handleCancelScheduledOrder}
@@ -800,6 +811,36 @@ export default function PortfolioPage() {
                     </div>
                 )}
             </div>
+
+            {/* Completed Scheduled Orders List */}
+            {completedScheduledOrders.length > 0 && (
+                <div className="mt-12">
+                    <div
+                        className="flex justify-between items-center mb-4 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
+                        onClick={() => setIsCompletedOpen(!isCompletedOpen)}
+                    >
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-xl font-bold tracking-tight flex items-center gap-2 text-muted-foreground">
+                                완료된 예약 내역
+                            </h3>
+                            <span className="text-sm font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                {completedScheduledOrders.length}
+                            </span>
+                            {isCompletedOpen ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+                        </div>
+                    </div>
+                    {isCompletedOpen && selectedAccount && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                            <ScheduledOrdersList
+                                orders={completedScheduledOrders}
+                                isLoading={isScheduledLoading}
+                                error={scheduledError}
+                                onCancel={() => { }} // Cancel not allowed for completed
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="mt-12">
                 <div
